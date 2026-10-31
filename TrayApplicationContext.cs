@@ -6,20 +6,24 @@ namespace ConsuntivoOre;
 internal sealed class TrayApplicationContext : ApplicationContext
 {
     private const int TickMilliseconds = 20_000;
+    private const int BalloonMilliseconds = 10_000;
 
-    private readonly DataStore _store = new();
+    private readonly DataStore _store;
     private readonly NotifyIcon _tray;
     private readonly System.Windows.Forms.Timer _timer = new() { Interval = 5_000 };
     private readonly Control _invoker = new();
     private readonly RegisteredWaitHandle _showWait;
+    private readonly Queue<(string Title, string Text, Action OnClick)> _notifications = new();
 
     private EntryForm? _entryForm;
     private ReportForm? _reportForm;
     private SettingsForm? _settingsForm;
     private Action? _balloonAction;
+    private DateTime? _balloonShownAt;
 
-    public TrayApplicationContext(EventWaitHandle showEvent, bool openEntryOnStart)
+    public TrayApplicationContext(DataStore store, EventWaitHandle showEvent, bool openEntryOnStart)
     {
+        _store = store;
         _ = _invoker.Handle; // crea l'handle per poter fare marshalling sul thread UI
 
         var menu = new ContextMenuStrip();
@@ -29,6 +33,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         [
             entryItem,
             new ToolStripMenuItem("Report settimanale", null, (_, _) => ShowReport()),
+            new ToolStripMenuItem("Non ricordarmelo oggi", null, (_, _) => _store.SkipReminder(Today)),
             new ToolStripMenuItem("Impostazioni…", null, (_, _) => ShowSettings()),
             new ToolStripSeparator(),
             new ToolStripMenuItem("Esci", null, (_, _) => ExitThread()),
@@ -48,8 +53,14 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _tray.BalloonTipClicked += (_, _) =>
         {
             var action = _balloonAction;
-            _balloonAction = null;
+            ShowNextNotification(force: true);
             action?.Invoke();
+        };
+        _tray.BalloonTipClosed += (_, _) =>
+        {
+            // La chiusura di una notifica sostituita arriva subito dopo la nuova: non deve toglierle l'azione.
+            if (_balloonShownAt is { } shown && DateTime.Now - shown > TimeSpan.FromSeconds(2))
+                ShowNextNotification(force: true);
         };
 
         _store.EntriesChanged += OnEntriesChanged;
@@ -59,6 +70,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         {
             _timer.Interval = TickMilliseconds;
             CheckSchedule();
+            ShowNextNotification(force: false);
         };
         _timer.Start();
 
@@ -83,9 +95,11 @@ internal sealed class TrayApplicationContext : ApplicationContext
             _entryForm = new EntryForm(_store, day ?? Today);
             _entryForm.FormClosed += (_, _) => _entryForm = null;
         }
-        else if (day is { } d)
+        else if (!_entryForm.HasUnsavedInput)
         {
-            _entryForm.SetDay(d);
+            // Con dati in corso di inserimento il giorno non cambia: si azzererebbe il form.
+            if (day is { } d) _entryForm.SetDay(d);
+            else _entryForm.MoveToTodayIfStale();
         }
         Ui.BringToFront(_entryForm);
     }
@@ -143,44 +157,30 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private void CheckReminder(DateTime now)
     {
         var s = _store.Settings;
-        if (!s.ReminderEnabled || !s.ReminderDays.Contains(now.DayOfWeek)) return;
-
         var today = DateOnly.FromDateTime(now);
-        var due = today.ToDateTime(s.ReminderTime);
-        if (now < due) return;
-
-        if (s.LastReminder is { } last && last >= due)
-        {
-            // Già avvisato oggi: ripete solo se configurato e se è passato l'intervallo.
-            if (s.ReminderRepeatMinutes <= 0 || now - last < TimeSpan.FromMinutes(s.ReminderRepeatMinutes))
-                return;
-        }
-
         decimal done = _store.HoursOn(today);
-        if (s.DailyTargetHours > 0 && done >= s.DailyTargetHours) return;
+        if (!Scheduler.IsReminderDue(s, _store.State, now, done)) return;
 
-        s.LastReminder = now;
-        _store.SaveSettings();
+        _store.State.LastReminder = now;
+        _store.SaveState();
 
         string message = s.DailyTargetHours > 0
             ? $"Oggi hai registrato {Fmt.Hours(done)} h su {Fmt.Hours(s.DailyTargetHours)} h. Clicca per consuntivare."
             : $"Oggi hai registrato {Fmt.Hours(done)} h. Clicca per consuntivare.";
         Notify("È ora di consuntivare le ore", message, () => ShowEntry(today));
-        if (s.OpenWindowWithNotification) ShowEntry(today);
+
+        // Se si sta già scrivendo non ruba il focus: basta la notifica.
+        if (s.OpenWindowWithNotification && _entryForm is not { IsDisposed: false, HasUnsavedInput: true })
+            ShowEntry(today);
     }
 
     private void CheckWeeklyReport(DateTime now)
     {
         var s = _store.Settings;
-        if (!s.ReportEnabled) return;
+        if (Scheduler.DueReportWeek(s, _store.State, now) is not { } weekStart) return;
 
-        var weekStart = Fmt.WeekStart(DateOnly.FromDateTime(now));
-        var due = weekStart.AddDays(Fmt.MondayIndex(s.ReportDay)).ToDateTime(s.ReportTime);
-        // Se il PC era spento all'orario previsto, il report arriva al primo avvio successivo della stessa settimana.
-        if (now < due || s.LastReportWeek == weekStart) return;
-
-        s.LastReportWeek = weekStart;
-        _store.SaveSettings();
+        _store.State.LastReportWeek = weekStart;
+        _store.SaveState();
 
         decimal total = _store.HoursBetween(weekStart, weekStart.AddDays(6));
         Notify("Report settimanale",
@@ -189,10 +189,26 @@ internal sealed class TrayApplicationContext : ApplicationContext
         if (s.OpenWindowWithNotification) ShowReport(weekStart);
     }
 
+    // Una notifica alla volta: una nuova sostituirebbe quella visibile e la sua azione al clic.
     private void Notify(string title, string text, Action onClick)
     {
-        _balloonAction = onClick;
-        _tray.ShowBalloonTip(10_000, title, text, ToolTipIcon.Info);
+        _notifications.Enqueue((title, text, onClick));
+        ShowNextNotification(force: false);
+    }
+
+    private void ShowNextNotification(bool force)
+    {
+        // Il tick copre i casi in cui Windows non segnala la chiusura della notifica.
+        bool busy = _balloonShownAt is { } shown && DateTime.Now - shown < TimeSpan.FromMilliseconds(BalloonMilliseconds);
+        if (busy && !force) return;
+
+        _balloonAction = null;
+        _balloonShownAt = null;
+        if (!_notifications.TryDequeue(out var next)) return;
+
+        _balloonAction = next.OnClick;
+        _balloonShownAt = DateTime.Now;
+        _tray.ShowBalloonTip(BalloonMilliseconds, next.Title, next.Text, ToolTipIcon.Info);
     }
 
     private void UpdateTooltip() =>

@@ -2,7 +2,10 @@
 ; Viene compilato da build.ps1 dopo "dotnet publish".
 
 #define MyAppName "Consuntivo Ore"
-#define MyAppVersion "1.0.0"
+; La versione arriva da build.ps1 (Directory.Build.props).
+#ifndef MyAppVersion
+  #define MyAppVersion "0.0.0"
+#endif
 #define MyAppExe "ConsuntivoOre.exe"
 #define RunKey "Software\Microsoft\Windows\CurrentVersion\Run"
 

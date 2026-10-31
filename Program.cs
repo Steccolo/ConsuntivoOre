@@ -26,10 +26,38 @@ internal static class Program
         using var showEvent = new EventWaitHandle(false, EventResetMode.AutoReset, ShowEventName);
 
         ApplicationConfiguration.Initialize();
-        Application.ThreadException += (_, e) => Log.Error(e.Exception);
-        AppDomain.CurrentDomain.UnhandledException += (_, e) => Log.Error(e.ExceptionObject as Exception);
+        Application.ThreadException += (_, e) => ReportError(e.Exception);
+        AppDomain.CurrentDomain.UnhandledException += (_, e) => ReportError(e.ExceptionObject as Exception);
 
-        Application.Run(new TrayApplicationContext(showEvent, openEntryOnStart: !startup));
+        DataStore store;
+        try
+        {
+            store = new DataStore();
+        }
+        catch (Exception ex) when (ex is DataStoreException || DataStore.IsFileError(ex))
+        {
+            Log.Error(ex);
+            MessageBox.Show($"{ex.Message}\n\nL'app verrà chiusa per non alterare i dati.", "Consuntivo Ore",
+                MessageBoxButtons.OK, MessageBoxIcon.Error);
+            return;
+        }
+
+        if (store.LoadProblems.Count > 0)
+        {
+            MessageBox.Show(
+                string.Join("\n\n", store.LoadProblems) +
+                $"\n\nL'app riparte senza quei dati. I backup degli ultimi giorni sono in:\n{store.BackupDirectory}",
+                "Consuntivo Ore", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
+
+        Application.Run(new TrayApplicationContext(store, showEvent, openEntryOnStart: !startup));
         GC.KeepAlive(mutex);
+    }
+
+    private static void ReportError(Exception? ex)
+    {
+        Log.Error(ex);
+        MessageBox.Show($"Si è verificato un errore:\n{ex?.Message}\n\nDettagli in: {Log.FilePath}", "Consuntivo Ore",
+            MessageBoxButtons.OK, MessageBoxIcon.Error);
     }
 }

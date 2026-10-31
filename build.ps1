@@ -17,7 +17,8 @@ $iscc = @(
 ) | Where-Object { Test-Path $_ } | Select-Object -First 1
 if (-not $iscc) { throw "Inno Setup 6 non trovato (winget install JRSoftware.InnoSetup)" }
 
-& $iscc /Qp "installer\ConsuntivoOre.iss"
+$version = ([xml](Get-Content "Directory.Build.props")).Project.PropertyGroup.Version
+& $iscc /Qp "/DMyAppVersion=$version" "installer\ConsuntivoOre.iss"
 if ($LASTEXITCODE -ne 0) { throw "Compilazione installer non riuscita" }
 
 Get-ChildItem dist\*.exe | ForEach-Object { Write-Host "Installer pronto: $($_.FullName)" }

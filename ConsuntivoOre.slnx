@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/Core/">
+    <Project Path="Core/ConsuntivoOre.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/ConsuntivoOre.Tests/ConsuntivoOre.Tests.csproj" />
+  </Folder>
+  <Project Path="ConsuntivoOre.csproj" />
+</Solution>

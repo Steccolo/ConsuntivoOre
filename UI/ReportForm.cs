@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using System.Text;
 
 namespace ConsuntivoOre.UI;
@@ -95,8 +96,7 @@ internal sealed class ReportForm : BaseForm
         {
             var day = _weekStart.AddDays(i);
             var dayEntries = _entries.Where(e => e.Date == day).ToList();
-            bool weekend = day.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday;
-            if (dayEntries.Count == 0 && weekend) continue;
+            if (dayEntries.Count == 0 && !_store.Settings.WorkDays.Contains(day.DayOfWeek)) continue;
 
             var group = new ListViewGroup($"{Fmt.DayLong(day)}  —  {Fmt.Hours(dayEntries.Sum(e => e.Hours))} h")
             {
@@ -132,7 +132,7 @@ internal sealed class ReportForm : BaseForm
         _byClient.EndUpdate();
 
         var s = _store.Settings;
-        decimal expected = s.DailyTargetHours * s.ReminderDays.Count;
+        decimal expected = s.DailyTargetHours * s.WorkDays.Count;
         _total.Text = expected > 0
             ? $"Totale settimana: {Fmt.Hours(total)} h su {Fmt.Hours(expected)} h previste"
             : $"Totale settimana: {Fmt.Hours(total)} h";
@@ -143,7 +143,16 @@ internal sealed class ReportForm : BaseForm
 
     private void CopyText()
     {
-        Clipboard.SetText(ReportBuilder.Text(_entries, _weekStart));
+        try
+        {
+            Clipboard.SetText(ReportBuilder.Text(_entries, _weekStart));
+        }
+        catch (ExternalException ex)
+        {
+            Log.Error(ex);
+            Ui.ShowWarning(this, "Gli appunti sono occupati da un'altra applicazione: riprova.");
+            return;
+        }
         MessageBox.Show(this, "Report copiato negli appunti.", "Consuntivo Ore", MessageBoxButtons.OK, MessageBoxIcon.Information);
     }
 
@@ -152,7 +161,7 @@ internal sealed class ReportForm : BaseForm
         using var dialog = new SaveFileDialog
         {
             Filter = "File CSV (*.csv)|*.csv",
-            FileName = $"consuntivo_{_weekStart:yyyy}_settimana{Fmt.IsoWeek(_weekStart):00}.csv",
+            FileName = $"consuntivo_{Fmt.IsoYear(_weekStart)}_settimana{Fmt.IsoWeek(_weekStart):00}.csv",
             InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
         };
         if (dialog.ShowDialog(this) != DialogResult.OK) return;
@@ -160,8 +169,9 @@ internal sealed class ReportForm : BaseForm
         {
             File.WriteAllText(dialog.FileName, ReportBuilder.Csv(_entries), new UTF8Encoding(true));
         }
-        catch (IOException ex)
+        catch (Exception ex) when (DataStore.IsFileError(ex))
         {
+            Log.Error(ex);
             Ui.ShowWarning(this, $"Impossibile salvare il file:\n{ex.Message}");
         }
     }

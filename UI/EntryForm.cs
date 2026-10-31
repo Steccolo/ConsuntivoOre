@@ -34,6 +34,7 @@ internal sealed class EntryForm : BaseForm
     private readonly Button _delete;
 
     private Guid? _editingId;
+    private DateOnly _lastSelectedOn = DateOnly.FromDateTime(DateTime.Today);
 
     public EntryForm(DataStore store, DateOnly day)
     {
@@ -46,6 +47,7 @@ internal sealed class EntryForm : BaseForm
         _save = Ui.Button("Aggiungi", Save, 110);
         _cancelEdit = Ui.Button("Annulla modifica", ResetForm, 110);
         _cancelEdit.Visible = false;
+        var skipToday = Ui.Button("Non ricordarmelo oggi", () => _store.SkipReminder(DateOnly.FromDateTime(DateTime.Today)), 160);
         _edit = Ui.Button("Modifica", EditSelected);
         _delete = Ui.Button("Elimina", DeleteSelected);
         _total.Font = new Font(Font, FontStyle.Bold);
@@ -60,6 +62,7 @@ internal sealed class EntryForm : BaseForm
         _date.Value = day.ToDateTime(TimeOnly.MinValue);
         _date.ValueChanged += (_, _) =>
         {
+            _lastSelectedOn = DateOnly.FromDateTime(DateTime.Today);
             ResetForm();
             RefreshList();
         };
@@ -74,7 +77,7 @@ internal sealed class EntryForm : BaseForm
         noteLabel.Anchor = AnchorStyles.Left | AnchorStyles.Top;
         form.Controls.Add(noteLabel, 0, 2);
         form.Controls.Add(_note, 1, 2);
-        var formButtons = Ui.Flow(_save, _cancelEdit);
+        var formButtons = Ui.Flow(_save, _cancelEdit, skipToday);
         formButtons.FlowDirection = FlowDirection.RightToLeft;
         formButtons.Anchor = AnchorStyles.Right;
         form.Controls.Add(formButtons, 1, 3);
@@ -123,7 +126,19 @@ internal sealed class EntryForm : BaseForm
 
     private DateOnly SelectedDay => DateOnly.FromDateTime(_date.Value);
 
+    /// <summary>Ci sono dati che andrebbero persi azzerando il form.</summary>
+    public bool HasUnsavedInput => _editingId is not null || _hours.Value != 0 || _note.TextLength > 0;
+
     public void SetDay(DateOnly day) => _date.Value = day.ToDateTime(TimeOnly.MinValue);
+
+    /// <summary>Una finestra rimasta aperta da un giorno precedente torna a oggi.</summary>
+    public void MoveToTodayIfStale()
+    {
+        var today = DateOnly.FromDateTime(DateTime.Today);
+        if (_lastSelectedOn == today) return;
+        _lastSelectedOn = today;
+        SetDay(today);
+    }
 
     public void RefreshList()
     {
@@ -174,13 +189,21 @@ internal sealed class EntryForm : BaseForm
         }
         string note = _note.Text.Trim();
 
-        if (_editingId is { } id)
-            _store.Update(id, hours, client, note);
-        else
-            _store.Add(new TimeEntry { Date = SelectedDay, Hours = hours, Client = client, Note = note });
+        try
+        {
+            // Il salvataggio aggiorna anche l'elenco, tramite DataStore.EntriesChanged.
+            if (_editingId is { } id)
+                _store.Update(id, hours, client, note);
+            else
+                _store.Add(new TimeEntry { Date = SelectedDay, Hours = hours, Client = client, Note = note });
+        }
+        catch (Exception ex) when (DataStore.IsFileError(ex))
+        {
+            ShowSaveError(ex);
+            return;
+        }
 
         ResetForm();
-        RefreshList();
         FocusHours();
     }
 
@@ -202,13 +225,27 @@ internal sealed class EntryForm : BaseForm
         var answer = MessageBox.Show(this, "Eliminare la voce selezionata?", "Consuntivo Ore",
             MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2);
         if (answer != DialogResult.Yes) return;
+        try
+        {
+            _store.Delete(id);
+        }
+        catch (Exception ex) when (DataStore.IsFileError(ex))
+        {
+            ShowSaveError(ex);
+            return;
+        }
         if (_editingId == id) ResetForm();
-        _store.Delete(id);
-        RefreshList();
+    }
+
+    private void ShowSaveError(Exception ex)
+    {
+        Log.Error(ex);
+        Ui.ShowWarning(this, $"Impossibile salvare: la modifica non è stata registrata.\n{ex.Message}");
     }
 
     private void ResetForm()
     {
+        if (_editingId is not null) _client.Text = "";
         _editingId = null;
         _hours.Value = 0;
         _note.Clear();
@@ -233,6 +270,10 @@ internal sealed class EntryForm : BaseForm
         _list.Columns[2].Width = Math.Max(LogicalToDeviceUnits(120), _list.ClientSize.Width - used);
     }
 
+    private bool ConfirmDiscard() =>
+        !HasUnsavedInput || MessageBox.Show(this, "Chiudere senza salvare i dati inseriti?", "Consuntivo Ore",
+            MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2) == DialogResult.Yes;
+
     protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
     {
         switch (keyData)
@@ -241,8 +282,9 @@ internal sealed class EntryForm : BaseForm
                 Save();
                 return true;
             case Keys.Escape:
-                if (_editingId is not null) ResetForm();
-                else Close();
+                if (_client.DroppedDown) _client.DroppedDown = false;
+                else if (_editingId is not null) ResetForm();
+                else if (ConfirmDiscard()) Close();
                 return true;
         }
         return base.ProcessCmdKey(ref msg, keyData);

@@ -11,6 +11,9 @@ internal sealed class SettingsForm : BaseForm
     private readonly CheckBox[] _days = Fmt.WeekDays
         .Select(d => new CheckBox { Text = Fmt.DayName(d)[..3], AutoSize = true, Tag = d })
         .ToArray();
+    private readonly CheckBox[] _workDays = Fmt.WeekDays
+        .Select(d => new CheckBox { Text = Fmt.DayName(d)[..3], AutoSize = true, Tag = d })
+        .ToArray();
     private readonly NumericUpDown _repeat = new() { Minimum = 0, Maximum = 240, Increment = 5, Width = 70 };
     private readonly NumericUpDown _target = new() { Minimum = 0, Maximum = 24, Increment = 0.5m, DecimalPlaces = 1, Width = 70 };
 
@@ -60,8 +63,9 @@ internal sealed class SettingsForm : BaseForm
         var general = Ui.Grid(SizeType.AutoSize);
         general.Controls.Add(_openWindow, 0, 0);
         general.Controls.Add(_autostart, 0, 1);
+        general.Controls.Add(Ui.Flow([Ui.Label("Giorni lavorativi"), .. _workDays]), 0, 3);
         general.Controls.Add(Ui.Flow(
-            Ui.Button("Apri cartella dati", () => Process.Start("explorer.exe", DataStore.DataDirectory), 140),
+            Ui.Button("Apri cartella dati", () => Process.Start("explorer.exe", _store.DataDirectory), 140),
             Ui.Button("Invia notifica di prova", sendTestNotification, 160)), 0, 2);
 
         // --- pulsanti
@@ -91,6 +95,7 @@ internal sealed class SettingsForm : BaseForm
         foreach (var box in _days) box.Checked = s.ReminderDays.Contains((DayOfWeek)box.Tag!);
         _repeat.Value = Math.Clamp(s.ReminderRepeatMinutes, 0, 240);
         _target.Value = Math.Clamp(s.DailyTargetHours, 0, 24);
+        foreach (var box in _workDays) box.Checked = s.WorkDays.Contains((DayOfWeek)box.Tag!);
         _reportEnabled.Checked = s.ReportEnabled;
         _reportDay.SelectedIndex = Fmt.MondayIndex(s.ReportDay);
         _reportTime.Value = DateTime.Today.Add(s.ReportTime.ToTimeSpan());
@@ -114,15 +119,25 @@ internal sealed class SettingsForm : BaseForm
         s.ReminderDays = days;
         s.ReminderRepeatMinutes = (int)_repeat.Value;
         s.DailyTargetHours = _target.Value;
+        s.WorkDays = _workDays.Where(b => b.Checked).Select(b => (DayOfWeek)b.Tag!).ToList();
         s.ReportEnabled = _reportEnabled.Checked;
         s.ReportDay = Fmt.WeekDays[_reportDay.SelectedIndex];
         s.ReportTime = ToTime(_reportTime.Value);
         s.OpenWindowWithNotification = _openWindow.Checked;
-        _store.SaveSettings();
+        try
+        {
+            _store.SaveSettings();
+        }
+        catch (Exception ex) when (DataStore.IsFileError(ex))
+        {
+            Log.Error(ex);
+            Ui.ShowWarning(this, $"Impossibile salvare le impostazioni:\n{ex.Message}");
+            return;
+        }
 
         try
         {
-            Autostart.SetEnabled(_autostart.Checked);
+            if (_autostart.Checked != Autostart.IsEnabled) Autostart.SetEnabled(_autostart.Checked);
         }
         catch (Exception ex)
         {

@@ -5,11 +5,11 @@ namespace ConsuntivoOre.Core;
 public static class ReportBuilder
 {
     public static string Title(DateOnly weekStart) =>
-        $"Settimana {Fmt.IsoWeek(weekStart)} · {weekStart:dd/MM} – {Fmt.Date(weekStart.AddDays(6))}";
+        $"Settimana {Fmt.IsoWeek(weekStart)} · {weekStart.ToString("dd/MM", Fmt.It)} – {Fmt.Date(weekStart.AddDays(6))}";
 
     public static IEnumerable<(string Client, decimal Hours)> ByClient(IEnumerable<TimeEntry> entries) =>
         entries.GroupBy(e => e.Client, StringComparer.CurrentCultureIgnoreCase)
-               .Select(g => (g.First().Client, g.Sum(e => e.Hours)))
+               .Select(g => (g.MaxBy(e => e.CreatedAt)!.Client, g.Sum(e => e.Hours)))
                .OrderByDescending(x => x.Item2);
 
     public static string Text(IReadOnlyList<TimeEntry> entries, DateOnly weekStart)
