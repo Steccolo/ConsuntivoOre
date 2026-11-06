@@ -40,6 +40,11 @@
       <Setter Property="Margin" Value="0,0,0,10" />
     </Style>
 
+    <!-- Tutte le tabelle: colonne ridimensionabili trascinando il bordo dell'intestazione. -->
+    <Style Selector="DataGrid">
+      <Setter Property="CanUserResizeColumns" Value="True" />
+    </Style>
+
     <!-- Tabelle "a celle": evidenzia la cella cliccata invece della riga intera (report da copiare in Jira). -->
     <Style Selector="DataGrid.cells DataGridRow:selected /template/ Rectangle#BackgroundRectangle">
       <Setter Property="Opacity" Value="0" />
