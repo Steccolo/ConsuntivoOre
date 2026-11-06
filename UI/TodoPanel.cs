@@ -1,6 +1,6 @@
 namespace ConsuntivoOre.UI;
 
-/// <summary>Scheda dei todo: elenco dei task da fare, con consuntivazione diretta sul giorno corrente.</summary>
+/// <summary>Scheda dei todo: elenco dei task, con consuntivazione diretta (di default sul giorno corrente).</summary>
 internal sealed class TodoPanel : UserControl
 {
     private readonly DataStore _store;
@@ -42,9 +42,9 @@ internal sealed class TodoPanel : UserControl
         SaveButton = Ui.Button("Aggiungi", Save, 110);
         _cancelEdit = Ui.Button("Annulla modifica", ResetForm, 110);
         _cancelEdit.Visible = false;
-        _log = Ui.Button("Consuntiva oggi…", LogSelected, 140);
+        _log = Ui.Button("Consuntiva…", LogSelected, 120);
         _edit = Ui.Button("Modifica", EditSelected);
-        _complete = Ui.Button("Completato", CompleteSelected, 100);
+        _complete = Ui.Button("Completato", ToggleCompleted, 100);
         _delete = Ui.Button("Elimina", DeleteSelected);
         _log.Font = new Font(Font, FontStyle.Bold);
 
@@ -77,7 +77,7 @@ internal sealed class TodoPanel : UserControl
         // --- elenco
         _list.Columns.Add("Nome", LogicalToDeviceUnits(170));
         _list.Columns.Add("Previste", LogicalToDeviceUnits(70), HorizontalAlignment.Right);
-        _list.Columns.Add("Fatte", LogicalToDeviceUnits(60), HorizontalAlignment.Right);
+        _list.Columns.Add("Consuntivato", LogicalToDeviceUnits(95), HorizontalAlignment.Right);
         _list.Columns.Add("Entro il", LogicalToDeviceUnits(90));
         _list.Columns.Add("Descrizione", LogicalToDeviceUnits(200));
         _list.Resize += (_, _) => FitLastColumn();
@@ -129,7 +129,7 @@ internal sealed class TodoPanel : UserControl
     {
         var selected = SelectedId();
         var today = DateOnly.FromDateTime(DateTime.Today);
-        var todos = _store.OpenTodos();
+        var todos = _store.Todos();
 
         _list.BeginUpdate();
         _list.Items.Clear();
@@ -138,25 +138,40 @@ internal sealed class TodoPanel : UserControl
             decimal done = _store.HoursForTodo(todo.Id);
             var item = new ListViewItem(todo.Name) { Tag = todo.Id, UseItemStyleForSubItems = false };
             item.SubItems.Add(todo.PlannedHours > 0 ? Fmt.Hours(todo.PlannedHours) : "");
-            var doneCell = item.SubItems.Add(done > 0 ? Fmt.Hours(done) : "");
-            if (todo.PlannedHours > 0 && done > todo.PlannedHours) doneCell.ForeColor = Ui.Warn;
+            var doneCell = item.SubItems.Add(done > 0 ? $"✓ {Fmt.Hours(done)} h" : "");
             var dueCell = item.SubItems.Add(todo.DueDate is { } d ? Fmt.Date(d) : "");
-            if (todo.DueDate is { } due && due <= today)
-            {
-                dueCell.ForeColor = Ui.Warn;
-                dueCell.Font = new Font(_list.Font, FontStyle.Bold);
-            }
             item.SubItems.Add(Ui.OneLine(todo.Description));
+
+            if (todo.IsDone)
+            {
+                // I completati restano in elenco, in verde.
+                foreach (ListViewItem.ListViewSubItem cell in item.SubItems) cell.ForeColor = Ui.Good;
+            }
+            else
+            {
+                if (todo.PlannedHours > 0 && done > todo.PlannedHours) doneCell.ForeColor = Ui.Warn;
+                if (todo.DueDate is { } due && due <= today)
+                {
+                    dueCell.ForeColor = Ui.Warn;
+                    dueCell.Font = new Font(_list.Font, FontStyle.Bold);
+                }
+            }
             item.Selected = todo.Id == selected;
             _list.Items.Add(item);
         }
         _list.EndUpdate();
         FitLastColumn();
 
-        int overdue = todos.Count(t => t.DueDate is { } d && d < today);
-        _summary.Text = todos.Count == 0 ? "Nessun todo aperto"
-            : overdue > 0 ? $"{todos.Count} aperti, {overdue} scaduti"
-            : $"{todos.Count} aperti";
+        int open = todos.Count(t => !t.IsDone);
+        int completed = todos.Count - open;
+        int overdue = todos.Count(t => !t.IsDone && t.DueDate is { } d && d < today);
+        _summary.Text = todos.Count == 0 ? "Nessun todo"
+            : string.Join(", ", new[]
+              {
+                  $"{open} da fare",
+                  overdue > 0 ? $"{overdue} scaduti" : null,
+                  completed > 0 ? $"{completed} completati" : null,
+              }.Where(p => p is not null));
         _summary.ForeColor = overdue > 0 ? Ui.Warn : SystemColors.ControlText;
 
         UpdateButtons();
@@ -224,7 +239,7 @@ internal sealed class TodoPanel : UserControl
         _name.Focus();
     }
 
-    /// <summary>Registra le ore del todo nel giorno corrente, non nella data di scadenza.</summary>
+    /// <summary>Registra le ore del todo nel giorno scelto (di default oggi, non la data di scadenza).</summary>
     private void LogSelected()
     {
         if (SelectedId() is not { } id || _store.FindTodo(id) is not { } todo) return;
@@ -235,7 +250,7 @@ internal sealed class TodoPanel : UserControl
         {
             _store.Add(new TimeEntry
             {
-                Date = DateOnly.FromDateTime(DateTime.Today),
+                Date = dialog.Day,
                 Hours = dialog.Hours,
                 Client = todo.Name,
                 Note = todo.Description,
@@ -248,19 +263,21 @@ internal sealed class TodoPanel : UserControl
             return;
         }
 
-        if (dialog.MarkCompleted) Complete(id);
+        // Consuntivato = fatto: resta in elenco, in verde. Si può sempre riaprire o consuntivare ancora.
+        if (!todo.IsDone) SetCompleted(id, true);
     }
 
-    private void CompleteSelected()
+    private void ToggleCompleted()
     {
-        if (SelectedId() is { } id) Complete(id);
+        if (SelectedId() is { } id && _store.FindTodo(id) is { } todo) SetCompleted(id, !todo.IsDone);
     }
 
-    private void Complete(Guid id)
+    private void SetCompleted(Guid id, bool completed)
     {
         try
         {
-            _store.CompleteTodo(id);
+            if (completed) _store.CompleteTodo(id);
+            else _store.ReopenTodo(id);
         }
         catch (Exception ex) when (DataStore.IsFileError(ex))
         {
@@ -298,8 +315,12 @@ internal sealed class TodoPanel : UserControl
     private Guid? SelectedId() =>
         _list.SelectedItems.Count > 0 ? (Guid)_list.SelectedItems[0].Tag! : null;
 
-    private void UpdateButtons() =>
+    private void UpdateButtons()
+    {
         _log.Enabled = _edit.Enabled = _complete.Enabled = _delete.Enabled = _list.SelectedItems.Count > 0;
+        bool done = SelectedId() is { } id && _store.FindTodo(id) is { IsDone: true };
+        _complete.Text = done ? "Riapri" : "Completato";
+    }
 
     private void FitLastColumn()
     {
@@ -309,7 +330,7 @@ internal sealed class TodoPanel : UserControl
     }
 }
 
-/// <summary>Conferma delle ore da registrare oggi per un todo.</summary>
+/// <summary>Conferma delle ore da registrare per un todo e del giorno (di default oggi).</summary>
 internal sealed class LogTodoDialog : BaseForm
 {
     private readonly NumericUpDown _hours = new()
@@ -317,11 +338,11 @@ internal sealed class LogTodoDialog : BaseForm
         DecimalPlaces = 2, Increment = 0.5m, Minimum = 0, Maximum = 24, Width = 90,
         TextAlign = HorizontalAlignment.Right,
     };
-    private readonly CheckBox _complete = new() { Text = "Segna il todo come completato", AutoSize = true, Margin = new Padding(3, 8, 3, 3) };
+    private readonly DateTimePicker _day = new() { Format = DateTimePickerFormat.Long, Width = 240, Value = DateTime.Today };
 
     public LogTodoDialog(TodoItem todo, decimal alreadyLogged)
     {
-        Text = "Consuntiva oggi";
+        Text = "Consuntiva";
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = MinimizeBox = false;
         ShowInTaskbar = false;
@@ -338,7 +359,9 @@ internal sealed class LogTodoDialog : BaseForm
         grid.Padding = new Padding(12);
         grid.Dock = DockStyle.None;
         grid.Controls.Add(Ui.Label("Giorno"), 0, 0);
-        grid.Controls.Add(Ui.Label(Fmt.DayLong(DateOnly.FromDateTime(DateTime.Today)) + " (oggi)"), 1, 0);
+        var todayButton = Ui.Button("Oggi", () => _day.Value = DateTime.Today, 70);
+        _day.Margin = new Padding(3, 5, 3, 3);
+        grid.Controls.Add(Ui.Flow(_day, todayButton), 1, 0);
         grid.Controls.Add(Ui.Label("Cliente"), 0, 1);
         grid.Controls.Add(Ui.Label(todo.Name), 1, 1);
         if (todo.Description.Length > 0)
@@ -360,7 +383,6 @@ internal sealed class LogTodoDialog : BaseForm
         {
             Text = hint, AutoSize = true, ForeColor = SystemColors.GrayText, Margin = new Padding(8, 7, 3, 3),
         }), 1, 3);
-        grid.Controls.Add(_complete, 1, 4);
 
         var ok = Ui.Button("Registra", Accept, 100);
         var cancel = Ui.Button("Annulla", () => DialogResult = DialogResult.Cancel);
@@ -382,7 +404,7 @@ internal sealed class LogTodoDialog : BaseForm
 
     public decimal Hours => _hours.Value;
 
-    public bool MarkCompleted => _complete.Checked;
+    public DateOnly Day => DateOnly.FromDateTime(_day.Value);
 
     private void Accept()
     {

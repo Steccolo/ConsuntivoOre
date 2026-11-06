@@ -10,13 +10,16 @@ Si avvia insieme a Windows, apre la scheda **Todo** e resta nell'area di notific
   - Si ripete a intervalli regolari finché non raggiungi le ore previste (predefinito: ogni 30 minuti, fino a 8 h).
   - Se hai già segnato tutte le ore, non ricevi nessun avviso.
   - Nei giorni di ferie o malattia puoi fermarlo con **Non ricordarmelo oggi**, dalla finestra o dal menu dell'icona.
+  - La notifica ha tre pulsanti: **Consuntiva** apre la finestra, **Tra 30 minuti** la rimanda (torna una volta anche se di norma non si ripeterebbe), **Non oggi** la ferma fino a domani.
 - **Todo.** All'avvio la finestra si apre sulla scheda *Todo*. Per ogni task indichi:
   - il nome (obbligatorio);
   - una descrizione (obbligatoria);
   - le ore previste (facoltative);
   - la data entro cui completarlo (facoltativa: le scadenze di oggi o passate sono evidenziate).
 
-  Con **Consuntiva oggi…** registri le ore del task nel giorno corrente: il nome diventa il cliente e la descrizione la nota. Le ore proposte sono quelle previste ancora da fare (se le hai indicate), e puoi segnare il task come completato nello stesso passaggio. L'elenco mostra anche le ore già consuntivate per ogni task.
+  Con **Consuntiva…** registri le ore del task: il giorno proposto è oggi, ma puoi sceglierne un altro. Il nome diventa il cliente e la descrizione la nota. Le ore proposte sono quelle previste ancora da fare (se le hai indicate). Il task consuntivato resta in elenco, in verde, con la spunta e le ore registrate nella colonna **Consuntivato**; puoi consuntivarlo ancora in un altro giorno.
+
+  Con **Completato** segni come fatto un task senza consuntivarlo: anche lui resta in elenco, in verde, in fondo ai task da fare; **Riapri** lo riporta tra quelli da fare ed **Elimina** lo toglie del tutto.
 - **Consuntivazione.** Per ogni attività indichi:
   - le ore (es. `1,5`);
   - il cliente, scelto da un elenco che ricorda quelli già usati;
@@ -50,6 +53,8 @@ Per disinstallarla: **Impostazioni di Windows → App → App installate → Con
 | Modificare una voce o un todo | Doppio clic nell'elenco |
 | Copiare un campo del report | Clic sul campo e `Ctrl+C`, oppure doppio clic |
 | Chiudere la finestra | `Esc` |
+
+Le notifiche restano nel Centro notifiche di Windows e i pulsanti funzionano anche da lì. Se Windows non accetta le notifiche moderne, l'app usa il fumetto dell'area di notifica, che però non ha pulsanti.
 
 Se le notifiche non compaiono, verifica che **Non disturbare** di Windows sia disattivato e prova il pulsante *Invia notifica di prova* nelle impostazioni.
 

@@ -9,6 +9,13 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
+        // Chiamato dal disinstallatore: toglie le notifiche e la loro registrazione in Windows.
+        if (args.Contains("--uninstall-notifications", StringComparer.OrdinalIgnoreCase))
+        {
+            Toast.Uninstall();
+            return;
+        }
+
         bool startup = args.Contains("--startup", StringComparer.OrdinalIgnoreCase);
 
         using var mutex = new Mutex(true, MutexName, out bool createdNew);

@@ -3,6 +3,8 @@ namespace ConsuntivoOre.Core;
 /// <summary>Decide quando inviare promemoria e report. Non ha effetti collaterali.</summary>
 public static class Scheduler
 {
+    public const int SnoozeMinutes = 30;
+
     public static bool IsReminderDue(AppSettings s, SchedulerState state, DateTime now, decimal hoursToday)
     {
         if (!s.ReminderEnabled || !s.ReminderDays.Contains(now.DayOfWeek)) return false;
@@ -15,6 +17,13 @@ public static class Scheduler
 
         bool hasTarget = s.DailyTargetHours > 0;
         if (hasTarget && hoursToday >= s.DailyTargetHours) return false;
+
+        if (state.ReminderSnoozedUntil is { } until && DateOnly.FromDateTime(until) == today)
+        {
+            if (now < until) return false;
+            // Rimandato: torna una volta allo scadere, anche se di norma non si ripeterebbe.
+            if (state.LastReminder is not { } sent || sent < until) return true;
+        }
 
         if (state.LastReminder is { } last && last >= due)
         {

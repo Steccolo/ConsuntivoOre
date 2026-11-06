@@ -125,6 +125,10 @@ public sealed class DataStore
               .ThenBy(t => t.CreatedAt)
               .ToList();
 
+    /// <summary>Tutti i todo: prima quelli aperti (come <see cref="OpenTodos"/>), poi i completati dal più recente.</summary>
+    public IReadOnlyList<TodoItem> Todos() =>
+        [.. OpenTodos(), .. _todos.Where(t => t.IsDone).OrderByDescending(t => t.CompletedAt)];
+
     public TodoItem? FindTodo(Guid id) => _todos.FirstOrDefault(t => t.Id == id);
 
     /// <summary>Ore già consuntivate a partire dal todo.</summary>
@@ -152,6 +156,15 @@ public sealed class DataStore
         CommitTodos(undo: () => todo.CompletedAt = null);
     }
 
+    /// <summary>Riporta un todo completato tra quelli da fare.</summary>
+    public void ReopenTodo(Guid id)
+    {
+        var todo = FindTodo(id) ?? throw new InvalidOperationException("Todo non trovato.");
+        if (todo.CompletedAt is not { } completedAt) return;
+        todo.CompletedAt = null;
+        CommitTodos(undo: () => todo.CompletedAt = completedAt);
+    }
+
     public void DeleteTodo(Guid id)
     {
         int index = _todos.FindIndex(t => t.Id == id);
@@ -169,6 +182,18 @@ public sealed class DataStore
     public void SkipReminder(DateOnly day)
     {
         State.ReminderSkippedOn = day;
+        TrySaveState();
+    }
+
+    /// <summary>Rimanda il promemoria di oggi fino all'ora indicata.</summary>
+    public void SnoozeReminder(DateTime until)
+    {
+        State.ReminderSnoozedUntil = until;
+        TrySaveState();
+    }
+
+    private void TrySaveState()
+    {
         try
         {
             SaveState();

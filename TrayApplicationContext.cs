@@ -7,6 +7,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
 {
     private const int TickMilliseconds = 20_000;
     private const int BalloonMilliseconds = 10_000;
+    private const string ReminderTag = "reminder";
+    private const string ReportTag = "report";
 
     private readonly DataStore _store;
     private readonly NotifyIcon _tray;
@@ -34,7 +36,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             entryItem,
             new ToolStripMenuItem("Todo", null, (_, _) => ShowMain(MainTab.Todo)),
             new ToolStripMenuItem("Report settimanale", null, (_, _) => ShowReport()),
-            new ToolStripMenuItem("Non ricordarmelo oggi", null, (_, _) => _store.SkipReminder(Today)),
+            new ToolStripMenuItem("Non ricordarmelo oggi", null, (_, _) => SkipReminder(Today)),
             new ToolStripMenuItem("Impostazioni…", null, (_, _) => ShowSettings()),
             new ToolStripSeparator(),
             new ToolStripMenuItem("Esci", null, (_, _) => ExitThread()),
@@ -82,8 +84,14 @@ internal sealed class TrayApplicationContext : ApplicationContext
             null, Timeout.Infinite, executeOnlyOnce: false);
 
         UpdateTooltip();
+
+        // Se l'app è stata avviata cliccando una notifica, ci pensa l'azione della notifica ad aprire la finestra giusta.
+        bool launchedByToast = Toast.WasLaunchedByClick;
+        Toast.Initialize(command => _invoker.BeginInvoke((Action)(() => OnToastClicked(command))));
+
         // All'avvio (anche con Windows) la finestra si apre sulla scheda dei todo.
-        _invoker.BeginInvoke((Action)(() => ShowMain(MainTab.Todo)));
+        if (!launchedByToast)
+            _invoker.BeginInvoke((Action)(() => ShowMain(MainTab.Todo)));
     }
 
     private static DateOnly Today => DateOnly.FromDateTime(DateTime.Now);
@@ -145,8 +153,9 @@ internal sealed class TrayApplicationContext : ApplicationContext
     {
         if (_settingsForm is null || _settingsForm.IsDisposed)
         {
-            _settingsForm = new SettingsForm(_store,
-                () => Notify("Consuntivo Ore", "Le notifiche funzionano correttamente.", () => ShowEntry()));
+            _settingsForm = new SettingsForm(_store, () => Notify("test", "Consuntivo Ore",
+                "Le notifiche funzionano correttamente.", new ToastCommand(ToastAction.Entry), () => ShowEntry(),
+                ("Apri", new ToastCommand(ToastAction.Entry))));
             _settingsForm.Saved += OnEntriesChanged;
             _settingsForm.FormClosed += (_, _) => _settingsForm = null;
         }
@@ -161,6 +170,9 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private void OnEntriesChanged()
     {
         UpdateTooltip();
+        // Raggiunte le ore di oggi, il promemoria rimasto nel Centro notifiche non serve più.
+        decimal target = _store.Settings.DailyTargetHours;
+        if (target > 0 && _store.HoursOn(Today) >= target) Toast.Remove(ReminderTag);
         if (_entryForm is { IsDisposed: false })
         {
             _entryForm.RefreshList();
@@ -199,7 +211,11 @@ internal sealed class TrayApplicationContext : ApplicationContext
         string message = s.DailyTargetHours > 0
             ? $"Oggi hai registrato {Fmt.Hours(done)} h su {Fmt.Hours(s.DailyTargetHours)} h. Clicca per consuntivare."
             : $"Oggi hai registrato {Fmt.Hours(done)} h. Clicca per consuntivare.";
-        Notify("È ora di consuntivare le ore", message, () => ShowEntry(today));
+        Notify(ReminderTag, "È ora di consuntivare le ore", message,
+            new ToastCommand(ToastAction.Entry, today), () => ShowEntry(today),
+            ("Consuntiva", new ToastCommand(ToastAction.Entry, today)),
+            ($"Tra {Scheduler.SnoozeMinutes} minuti", new ToastCommand(ToastAction.Snooze, today)),
+            ("Non oggi", new ToastCommand(ToastAction.Skip, today)));
 
         // Se si sta già scrivendo non ruba il focus: basta la notifica.
         if (s.OpenWindowWithNotification && _entryForm is not { IsDisposed: false, HasUnsavedInput: true })
@@ -215,17 +231,55 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _store.SaveState();
 
         decimal total = _store.HoursBetween(weekStart, weekStart.AddDays(6));
-        Notify("Report settimanale",
+        Notify(ReportTag, "Report settimanale",
             $"Questa settimana hai consuntivato {Fmt.Hours(total)} h. Clicca per vedere il dettaglio.",
-            () => ShowReport(weekStart));
+            new ToastCommand(ToastAction.Report, weekStart), () => ShowReport(weekStart),
+            ("Apri il report", new ToastCommand(ToastAction.Report, weekStart)));
         if (s.OpenWindowWithNotification) ShowReport(weekStart);
     }
 
-    // Una notifica alla volta: una nuova sostituirebbe quella visibile e la sua azione al clic.
-    private void Notify(string title, string text, Action onClick)
+    /// <summary>
+    /// Notifica di Windows con pulsanti; se Windows non la accetta ripiega sul fumetto dell'area di notifica,
+    /// che ha solo il clic (<paramref name="balloonClick"/>).
+    /// </summary>
+    private void Notify(string tag, string title, string text, ToastCommand onClick, Action balloonClick,
+        params (string Label, ToastCommand Command)[] buttons)
     {
-        _notifications.Enqueue((title, text, onClick));
+        if (Toast.TryShow(tag, title, text, onClick, buttons)) return;
+
+        // Un fumetto alla volta: uno nuovo sostituirebbe quello visibile e la sua azione al clic.
+        _notifications.Enqueue((title, text, balloonClick));
         ShowNextNotification(force: false);
+    }
+
+    private void OnToastClicked(ToastCommand command)
+    {
+        switch (command.Action)
+        {
+            case ToastAction.Entry:
+                ShowEntry(command.Day);
+                break;
+            case ToastAction.Snooze:
+                // Un promemoria di un altro giorno, rimasto nel Centro notifiche, non si rimanda.
+                if (command.Day is null || command.Day == Today)
+                    _store.SnoozeReminder(DateTime.Now.AddMinutes(Scheduler.SnoozeMinutes));
+                break;
+            case ToastAction.Skip:
+                SkipReminder(command.Day ?? Today);
+                break;
+            case ToastAction.Report:
+                ShowReport(command.Day);
+                break;
+            default:
+                ShowMain();
+                break;
+        }
+    }
+
+    private void SkipReminder(DateOnly day)
+    {
+        _store.SkipReminder(day);
+        if (day == Today) Toast.Remove(ReminderTag);
     }
 
     private void ShowNextNotification(bool force)

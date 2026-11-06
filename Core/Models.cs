@@ -67,4 +67,6 @@ public sealed class SchedulerState
     public DateTime? LastReminder { get; set; }
     public DateOnly? LastReportWeek { get; set; }
     public DateOnly? ReminderSkippedOn { get; set; }
+    /// <summary>"Ricordamelo più tardi": il promemoria tace fino a quest'ora, poi torna una volta.</summary>
+    public DateTime? ReminderSnoozedUntil { get; set; }
 }

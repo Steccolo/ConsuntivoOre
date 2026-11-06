@@ -55,6 +55,8 @@ Filename: "{app}\{#MyAppExe}"; Description: "{cm:LaunchProgram,{#MyAppName}}"; F
 
 [UninstallRun]
 Filename: "{sys}\taskkill.exe"; Parameters: "/F /IM {#MyAppExe}"; Flags: runhidden; RunOnceId: "StopApp"
+; Toglie le notifiche dal Centro notifiche e la registrazione fatta dall'app per i loro pulsanti.
+Filename: "{app}\{#MyAppExe}"; Parameters: "--uninstall-notifications"; Flags: runhidden waituntilterminated; RunOnceId: "RemoveNotifications"
 
 [Code]
 procedure CurStepChanged(CurStep: TSetupStep);

@@ -153,6 +153,23 @@ public sealed class DataStoreTests : IDisposable
     }
 
     [Fact]
+    public void CompletedTodos_StayListedAfterOpenOnes_AndCanBeReopened()
+    {
+        var store = new DataStore(_dir);
+        var done = new TodoItem { Name = "Fatto", DueDate = Day };
+        var open = new TodoItem { Name = "Da fare", DueDate = Day.AddDays(3) };
+        store.AddTodo(done);
+        store.AddTodo(open);
+        store.CompleteTodo(done.Id);
+
+        Assert.Equal(["Da fare", "Fatto"], new DataStore(_dir).Todos().Select(t => t.Name));
+
+        store.ReopenTodo(done.Id);
+        Assert.Equal(["Fatto", "Da fare"], new DataStore(_dir).Todos().Select(t => t.Name));
+        Assert.False(store.FindTodo(done.Id)!.IsDone);
+    }
+
+    [Fact]
     public void HoursLoggedFromTodo_AreCounted()
     {
         var store = new DataStore(_dir);

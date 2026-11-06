@@ -70,4 +70,39 @@ public class SchedulerTests
         var sent = new SchedulerState { LastReportWeek = weekStart };
         Assert.Null(Scheduler.DueReportWeek(new AppSettings(), sent, friday.AddHours(18)));
     }
+
+    [Fact]
+    public void SnoozedReminder_WaitsThenComesBackOnce()
+    {
+        // Senza obiettivo il promemoria normalmente non si ripete: il rinvio lo fa tornare comunque una volta.
+        var settings = new AppSettings { DailyTargetHours = 0 };
+        var state = new SchedulerState { LastReminder = At(17, 30), ReminderSnoozedUntil = At(18) };
+        Assert.False(Scheduler.IsReminderDue(settings, state, At(17, 59), 0));
+        Assert.True(Scheduler.IsReminderDue(settings, state, At(18), 0));
+
+        state.LastReminder = At(18);
+        Assert.False(Scheduler.IsReminderDue(settings, state, At(20), 0));
+    }
+
+    [Fact]
+    public void SnoozedReminder_DelaysTheRegularRepeat()
+    {
+        var state = new SchedulerState { LastReminder = At(17, 30), ReminderSnoozedUntil = At(19) };
+        Assert.False(Scheduler.IsReminderDue(new AppSettings(), state, At(18, 30), 0));
+        Assert.True(Scheduler.IsReminderDue(new AppSettings(), state, At(19), 0));
+    }
+
+    [Fact]
+    public void Snooze_FromAnotherDay_IsIgnored()
+    {
+        var state = new SchedulerState { ReminderSnoozedUntil = At(23).AddDays(-1) };
+        Assert.True(Scheduler.IsReminderDue(new AppSettings(), state, At(17, 30), 0));
+    }
+
+    [Fact]
+    public void Snooze_DoesNotBypassReachedTarget()
+    {
+        var state = new SchedulerState { LastReminder = At(17, 30), ReminderSnoozedUntil = At(18) };
+        Assert.False(Scheduler.IsReminderDue(new AppSettings(), state, At(18), 8));
+    }
 }
