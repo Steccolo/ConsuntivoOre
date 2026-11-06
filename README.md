@@ -136,6 +136,8 @@ La versione si imposta in `Directory.Build.props`. Pubblicando un tag `vX.Y.Z`, 
 > Se `dotnet publish` segnala l'errore `NU1100`, manca la sorgente NuGet: aggiungila con
 > `dotnet nuget add source https://api.nuget.org/v3/index.json -n nuget.org`
 
+Per chi riprende lo sviluppo: `CLAUDE.md` raccoglie comandi, convenzioni e insidie note; `docs/STORIA.md` racconta richieste, decisioni e problemi affrontati versione per versione.
+
 ### Struttura del progetto
 
 ```
