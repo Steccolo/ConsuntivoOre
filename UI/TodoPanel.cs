@@ -33,11 +33,29 @@ internal sealed class TodoPanel : UserControl
     private readonly Button _cancelEdit;
 
     private Guid? _editingId;
+    private Font _bold;
+
+    private readonly record struct Highlight(Color Back, Color Fore);
+
+    private static class RowStyles
+    {
+        public static readonly Highlight Done = new(Color.FromArgb(220, 252, 231), Color.FromArgb(20, 83, 45));
+        public static readonly Highlight DueToday = new(Color.FromArgb(254, 249, 195), Color.FromArgb(194, 65, 12));
+        public static readonly Highlight Overdue = new(Color.FromArgb(254, 249, 195), Color.FromArgb(220, 38, 38));
+    }
 
     public TodoPanel(DataStore store)
     {
         _store = store;
         Dock = DockStyle.Fill;
+        _bold = new Font(_list.Font, FontStyle.Bold);
+        // Il font dell'elenco arriva dalla finestra solo dopo l'aggiunta: il grassetto va ricreato.
+        _list.FontChanged += (_, _) =>
+        {
+            _bold.Dispose();
+            _bold = new Font(_list.Font, FontStyle.Bold);
+            RefreshList();
+        };
 
         SaveButton = Ui.Button("Aggiungi", Save, 110);
         _cancelEdit = Ui.Button("Annulla modifica", ResetForm, 110);
@@ -139,22 +157,26 @@ internal sealed class TodoPanel : UserControl
             var item = new ListViewItem(todo.Name) { Tag = todo.Id, UseItemStyleForSubItems = false };
             item.SubItems.Add(todo.PlannedHours > 0 ? Fmt.Hours(todo.PlannedHours) : "");
             var doneCell = item.SubItems.Add(done > 0 ? $"✓ {Fmt.Hours(done)} h" : "");
-            var dueCell = item.SubItems.Add(todo.DueDate is { } d ? Fmt.Date(d) : "");
+            item.SubItems.Add(todo.DueDate is { } d ? Fmt.Date(d) : "");
             item.SubItems.Add(Ui.OneLine(todo.Description));
 
-            if (todo.IsDone)
+            // Completati e consuntivati restano in elenco in verde; in giallo i todo in scadenza oggi o scaduti.
+            var style = todo.IsDone ? RowStyles.Done
+                : todo.DueDate is { } due && due < today ? RowStyles.Overdue
+                : todo.DueDate == today ? RowStyles.DueToday
+                : (Highlight?)null;
+            if (style is { } row)
             {
-                // I completati restano in elenco, in verde.
-                foreach (ListViewItem.ListViewSubItem cell in item.SubItems) cell.ForeColor = Ui.Good;
-            }
-            else
-            {
-                if (todo.PlannedHours > 0 && done > todo.PlannedHours) doneCell.ForeColor = Ui.Warn;
-                if (todo.DueDate is { } due && due <= today)
+                foreach (ListViewItem.ListViewSubItem cell in item.SubItems)
                 {
-                    dueCell.ForeColor = Ui.Warn;
-                    dueCell.Font = new Font(_list.Font, FontStyle.Bold);
+                    cell.BackColor = row.Back;
+                    cell.ForeColor = row.Fore;
+                    cell.Font = _bold;
                 }
+            }
+            else if (todo.PlannedHours > 0 && done > todo.PlannedHours)
+            {
+                doneCell.ForeColor = Ui.Warn;
             }
             item.Selected = todo.Id == selected;
             _list.Items.Add(item);

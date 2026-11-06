@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <!-- Unica fonte della versione: build.ps1 la passa anche all'installer. -->
-    <Version>1.3.0</Version>
+    <Version>1.3.1</Version>
     <Product>Consuntivo Ore</Product>
     <Company>Stefano Ballarini</Company>
     <Nullable>enable</Nullable>
