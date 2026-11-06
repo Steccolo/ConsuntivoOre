@@ -51,9 +51,15 @@ public sealed class AppSettings
     /// <summary>Oltre alla notifica, apre direttamente la finestra di consuntivazione / report.</summary>
     public bool OpenWindowWithNotification { get; set; } = true;
 
+    /// <summary>Larghezze delle colonne scelte dall'utente, per tabella (l'ultima colonna riempie lo spazio e non c'è).</summary>
+    public Dictionary<string, List<double>> ColumnWidths { get; set; } = [];
+
     /// <summary>Riporta entro limiti validi i valori arrivati da un file modificato a mano.</summary>
     public void Normalize()
     {
+        ColumnWidths = (ColumnWidths ?? [])
+            .Where(kv => kv.Value is not null)
+            .ToDictionary(kv => kv.Key, kv => kv.Value.Select(w => Math.Clamp(double.IsFinite(w) ? w : 0, 30, 2000)).ToList());
         ReminderDays = (ReminderDays ?? []).Distinct().ToList();
         WorkDays = (WorkDays ?? []).Distinct().ToList();
         ReminderRepeatMinutes = Math.Clamp(ReminderRepeatMinutes, 0, 240);

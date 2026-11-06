@@ -52,6 +52,7 @@ Per disinstallarla: **Impostazioni di Windows → App → App installate → Con
 | Salvare un'attività | `Invio`, oppure `Ctrl+Invio` mentre scrivi la nota |
 | Modificare una voce o un todo | Doppio clic nell'elenco |
 | Copiare un campo del report | Clic sul campo e `Ctrl+C`, oppure doppio clic |
+| Allargare una colonna | Trascina il bordo della sua intestazione: la larghezza viene ricordata |
 | Chiudere la finestra | `Esc` |
 
 Le notifiche restano nel Centro notifiche di Windows e i pulsanti funzionano anche da lì. Se Windows non accetta le notifiche, l'app apre direttamente la finestra.

@@ -17,6 +17,9 @@ public partial class ReportWindow : Window
         DataContext = vm;
         ViewModel = vm;
 
+        ColumnLayout.Remember(DetailsGrid, "report", vm.Store, this);
+        ColumnLayout.Remember(ClientsGrid, "clienti", vm.Store, this);
+
         vm.CopyToClipboard = CopyToClipboard;
         vm.AskSavePath = AskSavePath;
         vm.ShowWarning = message => MessageDialog.Show(this, message);

@@ -16,6 +16,9 @@ public partial class MainWindow : Window
         DataContext = vm;
         ViewModel = vm;
 
+        ColumnLayout.Remember(TodoGrid, "todo", vm.Store, this);
+        ColumnLayout.Remember(EntryGrid, "ore", vm.Store, this);
+
         var todo = vm.Todo;
         todo.AskLog = (item, logged) => new LogDialog(item, logged).ShowDialog<(DateOnly, decimal)?>(this);
         todo.AskConfirm = message => ConfirmDialog.Show(this, message);

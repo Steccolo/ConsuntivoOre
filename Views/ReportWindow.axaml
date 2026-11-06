@@ -53,7 +53,7 @@
     <Border Classes="card" Grid.Row="2" Margin="0,0,0,10">
       <Grid RowDefinitions="Auto,*">
         <TextBlock Classes="title" Text="Totale per cliente" />
-        <DataGrid Grid.Row="1" ItemsSource="{Binding ByClient}" IsReadOnly="True" CanUserSortColumns="False"
+        <DataGrid x:Name="ClientsGrid" Grid.Row="1" ItemsSource="{Binding ByClient}" IsReadOnly="True" CanUserSortColumns="False"
                   CanUserReorderColumns="False" GridLinesVisibility="Horizontal" HeadersVisibility="Column"
                   BorderThickness="0">
           <DataGrid.Columns>

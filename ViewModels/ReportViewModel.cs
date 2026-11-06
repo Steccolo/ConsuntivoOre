@@ -66,6 +66,8 @@ public sealed partial class ReportViewModel : ObservableObject
         WeekStart = Fmt.WeekStart(anyDayOfWeek);
     }
 
+    public DataStore Store => _store;
+
     public ObservableCollection<ReportRow> Details { get; } = [];
     public ObservableCollection<ClientRow> ByClient { get; } = [];
 

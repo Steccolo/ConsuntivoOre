@@ -206,4 +206,18 @@ public sealed class DataStoreTests : IDisposable
         Assert.Single(store.LoadProblems);
         Assert.Empty(store.OpenTodos());
     }
+
+    [Fact]
+    public void ColumnWidths_SurviveReloadAndAreKeptInRange()
+    {
+        var store = new DataStore(_dir);
+        store.Settings.ColumnWidths["todo"] = [160, 95.5];
+        store.SaveSettings();
+        Assert.Equal([160, 95.5], new DataStore(_dir).Settings.ColumnWidths["todo"]);
+
+        File.WriteAllText(PathOf("settings.json"), """{"ColumnWidths":{"todo":[1,99999],"ore":null}}""");
+        var widths = new DataStore(_dir).Settings.ColumnWidths;
+        Assert.Equal([30, 2000], widths["todo"]);
+        Assert.False(widths.ContainsKey("ore"));
+    }
 }
