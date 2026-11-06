@@ -1,0 +1,69 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="ConsuntivoOre.Views.SettingsWindow"
+        Title="Impostazioni — Consuntivo Ore"
+        Icon="/Assets/app.ico"
+        SizeToContent="WidthAndHeight" CanResize="False"
+        WindowStartupLocation="CenterScreen"
+        Background="#F3F4F6">
+
+  <StackPanel Margin="12" Spacing="10" Width="700">
+
+    <Border Classes="card">
+      <StackPanel Spacing="8">
+        <TextBlock Classes="title" Text="Promemoria consuntivazione" />
+        <CheckBox x:Name="ReminderEnabled" Content="Ricordami di consuntivare le ore" />
+        <Grid x:Name="ReminderPanel" ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="8">
+          <Label Classes="field" Content="Orario" />
+          <TimePicker x:Name="ReminderTime" Grid.Column="1" ClockIdentifier="24HourClock" MinuteIncrement="5" />
+          <Label Classes="field" Grid.Row="1" Content="Giorni" />
+          <WrapPanel x:Name="ReminderDays" Grid.Row="1" Grid.Column="1" />
+          <Label Classes="field" Grid.Row="2" Content="Ore giornaliere previste" />
+          <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" Spacing="10">
+            <NumericUpDown x:Name="Target" Minimum="0" Maximum="24" Increment="0.5" FormatString="0.#" Width="130" />
+            <TextBlock Classes="hint" Text="h (se le raggiungi non ricevi il promemoria)" />
+          </StackPanel>
+          <Label Classes="field" Grid.Row="3" Content="Ripeti ogni" />
+          <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Spacing="10">
+            <NumericUpDown x:Name="Repeat" Minimum="0" Maximum="240" Increment="5" FormatString="0" Width="130" />
+            <TextBlock Classes="hint" Text="minuti finché non le raggiungi (0 = non ripetere)" />
+          </StackPanel>
+        </Grid>
+      </StackPanel>
+    </Border>
+
+    <Border Classes="card">
+      <StackPanel Spacing="8">
+        <TextBlock Classes="title" Text="Report settimanale" />
+        <CheckBox x:Name="ReportEnabled" Content="Inviami il report settimanale" />
+        <Grid x:Name="ReportPanel" ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto" RowSpacing="8">
+          <Label Classes="field" Content="Giorno" />
+          <ComboBox x:Name="ReportDay" Grid.Column="1" Width="160" />
+          <Label Classes="field" Grid.Row="1" Content="Orario" />
+          <TimePicker x:Name="ReportTime" Grid.Row="1" Grid.Column="1" ClockIdentifier="24HourClock" MinuteIncrement="5" />
+        </Grid>
+      </StackPanel>
+    </Border>
+
+    <Border Classes="card">
+      <StackPanel Spacing="8">
+        <TextBlock Classes="title" Text="Generale" />
+        <CheckBox x:Name="OpenWindow" Content="Apri la finestra insieme alla notifica" />
+        <CheckBox x:Name="AutostartBox" Content="Avvia automaticamente all'accensione del PC" />
+        <StackPanel Orientation="Horizontal" Spacing="4">
+          <Label Classes="field" Content="Giorni lavorativi" />
+          <WrapPanel x:Name="WorkDays" />
+        </StackPanel>
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <Button x:Name="OpenFolder" Content="Apri cartella dati" />
+          <Button x:Name="TestNotification" Content="Invia notifica di prova" />
+        </StackPanel>
+      </StackPanel>
+    </Border>
+
+    <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+      <Button x:Name="CancelButton" Content="Annulla" IsCancel="True" />
+      <Button x:Name="SaveButton" Classes="accent" Content="Salva" IsDefault="True" MinWidth="90" />
+    </StackPanel>
+  </StackPanel>
+</Window>

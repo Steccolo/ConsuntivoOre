@@ -2,9 +2,7 @@ using System.Collections.ObjectModel;
 using Avalonia.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using ConsuntivoOre.Core;
-
-namespace TodoAvalonia;
+namespace ConsuntivoOre.ViewModels;
 
 /// <summary>Una voce del giorno, già pronta da mostrare.</summary>
 public sealed class EntryRow(TimeEntry entry)
@@ -31,6 +29,12 @@ public sealed partial class EntryViewModel : ObservableObject
         Refresh();
     }
 
+    /// <summary>Alla chiusura della finestra: smette di seguire i dati.</summary>
+    public void Detach() => _store.EntriesChanged -= Refresh;
+
+    /// <summary>Ricarica (es. dopo un cambio delle ore previste nelle impostazioni).</summary>
+    public void Reload() => Refresh();
+
     public ObservableCollection<EntryRow> Rows { get; } = [];
     public ObservableCollection<string> Clients { get; } = [];
 
@@ -38,15 +42,29 @@ public sealed partial class EntryViewModel : ObservableObject
 
     [ObservableProperty] public partial DateTime? Day { get; set; } = DateTime.Today;
 
+    private DateOnly _lastSelectedOn = DateOnly.FromDateTime(DateTime.Today);
+
     partial void OnDayChanged(DateTime? value)
     {
         // Svuotare la data dal calendario non ha senso qui: si torna a oggi.
         if (value is null) { Day = DateTime.Today; return; }
+        _lastSelectedOn = DateOnly.FromDateTime(DateTime.Today);
         ResetForm();
         Refresh();
     }
 
     private DateOnly SelectedDay => DateOnly.FromDateTime(Day ?? DateTime.Today);
+
+    public void SetDay(DateOnly day) => Day = day.ToDateTime(TimeOnly.MinValue);
+
+    /// <summary>Una finestra rimasta aperta da un giorno precedente torna a oggi.</summary>
+    public void MoveToTodayIfStale()
+    {
+        var today = DateOnly.FromDateTime(DateTime.Today);
+        if (_lastSelectedOn == today) return;
+        _lastSelectedOn = today;
+        SetDay(today);
+    }
 
     [RelayCommand] private void PreviousDay() => Day = SelectedDay.AddDays(-1).ToDateTime(TimeOnly.MinValue);
     [RelayCommand] private void NextDay() => Day = SelectedDay.AddDays(1).ToDateTime(TimeOnly.MinValue);
@@ -65,6 +83,9 @@ public sealed partial class EntryViewModel : ObservableObject
     public partial Guid? EditingId { get; set; }
 
     public bool IsEditing => EditingId is not null;
+
+    /// <summary>Ci sono dati che andrebbero persi azzerando il form.</summary>
+    public bool HasUnsavedInput => IsEditing || Hours is > 0 || Note.Length > 0;
     public string SaveText => IsEditing ? "Salva modifiche" : "Aggiungi";
 
     // --- elenco
@@ -81,6 +102,9 @@ public sealed partial class EntryViewModel : ObservableObject
 
     /// <summary>Impostato dalla finestra: chiede conferma prima di eliminare.</summary>
     public Func<string, Task<bool>>? AskConfirm { get; set; }
+
+    /// <summary>"Non ricordarmelo oggi": lo gestisce l'app, che toglie anche la notifica.</summary>
+    public Action? SkipRequested { get; set; }
 
     private void Refresh()
     {
@@ -162,7 +186,7 @@ public sealed partial class EntryViewModel : ObservableObject
     [RelayCommand]
     private void SkipToday()
     {
-        _store.SkipReminder(DateOnly.FromDateTime(DateTime.Today));
+        SkipRequested?.Invoke();
         Message = "Per oggi non riceverai altri promemoria.";
         MessageIsError = false;
     }
@@ -174,9 +198,3 @@ public sealed partial class EntryViewModel : ObservableObject
     }
 }
 
-/// <summary>Le due schede della finestra.</summary>
-public sealed class MainViewModel(DataStore store)
-{
-    public TodoViewModel Todo { get; } = new(store);
-    public EntryViewModel Entry { get; } = new(store);
-}

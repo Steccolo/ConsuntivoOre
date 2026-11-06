@@ -1,6 +1,6 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             x:Class="TodoAvalonia.App"
+             x:Class="ConsuntivoOre.App"
              RequestedThemeVariant="Light">
   <Application.Styles>
     <FluentTheme />
@@ -38,6 +38,14 @@
       <Setter Property="FontSize" Value="15" />
       <Setter Property="FontWeight" Value="SemiBold" />
       <Setter Property="Margin" Value="0,0,0,10" />
+    </Style>
+
+    <!-- Tabelle "a celle": evidenzia la cella cliccata invece della riga intera (report da copiare in Jira). -->
+    <Style Selector="DataGrid.cells DataGridRow:selected /template/ Rectangle#BackgroundRectangle">
+      <Setter Property="Opacity" Value="0" />
+    </Style>
+    <Style Selector="DataGrid.cells DataGridCell:current">
+      <Setter Property="Background" Value="#BFDBFE" />
     </Style>
   </Application.Styles>
 </Application>

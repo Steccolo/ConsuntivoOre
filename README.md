@@ -1,6 +1,6 @@
 # Consuntivo Ore
 
-Piccola applicazione per Windows che ricorda di **consuntivare le ore di lavoro** e prepara un **report settimanale**.
+Piccola applicazione per Windows (funziona anche su Linux) che ricorda di **consuntivare le ore di lavoro** e prepara un **report settimanale**.
 
 Si avvia insieme a Windows, apre la scheda **Todo** e resta nell'area di notifica (in basso a destra, vicino all'orologio). All'orario scelto mostra una notifica e apre la scheda in cui segnare le ore della giornata.
 
@@ -54,7 +54,9 @@ Per disinstallarla: **Impostazioni di Windows → App → App installate → Con
 | Copiare un campo del report | Clic sul campo e `Ctrl+C`, oppure doppio clic |
 | Chiudere la finestra | `Esc` |
 
-Le notifiche restano nel Centro notifiche di Windows e i pulsanti funzionano anche da lì. Se Windows non accetta le notifiche moderne, l'app usa il fumetto dell'area di notifica, che però non ha pulsanti.
+Le notifiche restano nel Centro notifiche di Windows e i pulsanti funzionano anche da lì. Se Windows non accetta le notifiche, l'app apre direttamente la finestra.
+
+Nel report, la cella selezionata è evidenziata in azzurro: è quella che viene copiata.
 
 Se le notifiche non compaiono, verifica che **Non disturbare** di Windows sia disattivato e prova il pulsante *Invia notifica di prova* nelle impostazioni.
 
@@ -73,13 +75,19 @@ Se un file risulta illeggibile, all'avvio l'app lo segnala e ne conserva una cop
 
 Disinstallando l'app i dati **non** vengono cancellati. Per fare un backup basta copiare la cartella.
 
+Su Linux la cartella è `~/.config/ConsuntivoOre`.
+
 ## Compilare dai sorgenti
+
+L'interfaccia è scritta con [Avalonia](https://avaloniaui.net/), quindi si sviluppa e si prova anche su Linux. Il progetto produce due versioni:
+
+- `net10.0-windows10.0.17763.0`: Windows 10 (1809) o 11, con notifiche toast e avvio automatico dal registro;
+- `net10.0`: Linux, con notifiche tramite `notify-send` e avvio automatico da `~/.config/autostart`.
 
 Requisiti:
 
-- Windows 10 o 11
 - [.NET 10 SDK](https://dotnet.microsoft.com/download)
-- [Inno Setup 6](https://jrsoftware.org/isinfo.php), necessario solo per creare l'installer
+- [Inno Setup 6](https://jrsoftware.org/isinfo.php), solo su Windows e solo per creare l'installer
 
 ```powershell
 winget install Microsoft.DotNet.SDK.10
@@ -89,10 +97,23 @@ winget install JRSoftware.InnoSetup
 Per avviare l'app in modalità di sviluppo:
 
 ```powershell
-dotnet run
+dotnet run -f net10.0-windows10.0.17763.0   # Windows
+dotnet run -f net10.0                       # Linux
 ```
 
-Per creare l'eseguibile e l'installer:
+Per controllare la grafica senza aprire finestre, `--screenshot <cartella>` salva un'immagine PNG di ogni finestra, con dati di esempio (mai quelli reali):
+
+```bash
+dotnet run -f net10.0 -- --screenshot /tmp/schermate
+```
+
+Per un eseguibile Linux in un unico file:
+
+```bash
+dotnet publish -c Release -f net10.0 -r linux-x64 --self-contained -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o publish-linux
+```
+
+Per creare l'eseguibile e l'installer per Windows:
 
 ```powershell
 .\build.ps1
@@ -117,15 +138,18 @@ La versione si imposta in `Directory.Build.props`. Pubblicando un tag `vX.Y.Z`, 
 ### Struttura del progetto
 
 ```
-Program.cs                  Avvio, gestione dell'istanza singola
-TrayApplicationContext.cs   Icona nell'area di notifica, notifiche, controllo degli orari
-Core/                       Libreria senza interfaccia: modelli, salvataggio JSON, scheduler, report e CSV
-Platform/                   Avvio automatico (registro di Windows)
-tests/                      Test di Core
-UI/                         Finestra principale (todo e consuntivazione), report e impostazioni
-Assets/app.ico              Icona (rigenerabile con tools/MakeIcon.ps1)
-installer/                  Script dell'installer Inno Setup
-build.ps1                   Compilazione e creazione dell'installer
+Program.cs          Avvio, istanza singola, opzioni da riga di comando
+App.axaml           Tema e stili comuni
+AppController.cs    Icona nell'area di notifica, controllo degli orari, notifiche, apertura delle finestre
+Screenshots.cs      Opzione --screenshot (immagini delle finestre con dati di esempio)
+Core/               Libreria senza interfaccia: modelli, salvataggio JSON, scheduler, report e CSV
+Platform/           Notifiche, avvio automatico e istanza singola (Windows e Linux)
+ViewModels/         Logica delle finestre: todo, consuntivazione, report
+Views/              Finestre in XAML: principale (todo e consuntivazione), report, impostazioni, dialoghi
+tests/              Test di Core
+Assets/app.ico      Icona (rigenerabile con tools/MakeIcon.ps1)
+installer/          Script dell'installer Inno Setup
+build.ps1           Compilazione e creazione dell'installer
 ```
 
-L'avvio automatico usa la chiave di registro `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`, valore `ConsuntivoOre`.
+L'avvio automatico usa, su Windows, la chiave di registro `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`, valore `ConsuntivoOre`; su Linux il file `~/.config/autostart/consuntivo-ore.desktop`.

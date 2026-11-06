@@ -2,9 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
-using ConsuntivoOre.Core;
-
-namespace TodoAvalonia;
+namespace ConsuntivoOre.Views;
 
 /// <summary>Ore e giorno (di default oggi) da registrare per un todo.</summary>
 public sealed class LogDialog : Window
@@ -14,6 +12,7 @@ public sealed class LogDialog : Window
     public LogDialog(TodoItem todo, decimal alreadyLogged)
     {
         Title = "Consuntiva";
+        Icon = AppAssets.Icon;
         SizeToContent = SizeToContent.WidthAndHeight;
         CanResize = false;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
@@ -103,6 +102,7 @@ public static class ConfirmDialog
         var window = new Window
         {
             Title = "Consuntivo Ore",
+            Icon = AppAssets.Icon,
             SizeToContent = SizeToContent.WidthAndHeight,
             CanResize = false,
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
@@ -125,6 +125,51 @@ public static class ConfirmDialog
             },
         };
         return window.ShowDialog<bool>(owner);
+    }
+}
+
+/// <summary>Avviso con il solo pulsante OK; senza finestra proprietaria compare al centro dello schermo.</summary>
+public static class MessageDialog
+{
+    public static Task Show(Window? owner, string message, bool error = false)
+    {
+        var window = new Window
+        {
+            Title = "Consuntivo Ore",
+            Icon = AppAssets.Icon,
+            SizeToContent = SizeToContent.WidthAndHeight,
+            CanResize = false,
+            WindowStartupLocation = owner is null ? WindowStartupLocation.CenterScreen : WindowStartupLocation.CenterOwner,
+        };
+        var ok = new Button { Content = "OK", Classes = { "accent" }, IsDefault = true, IsCancel = true, MinWidth = 80 };
+        ok.Click += (_, _) => window.Close();
+        window.Content = new StackPanel
+        {
+            Margin = new Thickness(20), Spacing = 16,
+            Children =
+            {
+                new StackPanel
+                {
+                    Orientation = Orientation.Horizontal, Spacing = 12,
+                    Children =
+                    {
+                        new TextBlock
+                        {
+                            Text = error ? "✖" : "⚠", FontSize = 22, VerticalAlignment = VerticalAlignment.Top,
+                            Foreground = new SolidColorBrush(error ? Color.FromRgb(220, 38, 38) : Color.FromRgb(180, 83, 9)),
+                        },
+                        new SelectableTextBlock { Text = message, TextWrapping = TextWrapping.Wrap, MaxWidth = 460 },
+                    },
+                },
+                new StackPanel { HorizontalAlignment = HorizontalAlignment.Right, Children = { ok } },
+            },
+        };
+        if (owner is not null) return window.ShowDialog(owner);
+
+        var closed = new TaskCompletionSource();
+        window.Closed += (_, _) => closed.TrySetResult();
+        window.Show();
+        return closed.Task;
     }
 }
 

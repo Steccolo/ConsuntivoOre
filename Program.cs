@@ -1,70 +1,67 @@
+using System.Globalization;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Threading;
+
 namespace ConsuntivoOre;
 
 internal static class Program
 {
-    // Il nome del mutex è usato anche dall'installer (AppMutex) per rilevare l'app in esecuzione.
-    private const string MutexName = "ConsuntivoOreMutex";
-    private const string ShowEventName = "ConsuntivoOreShowEvent";
+    public static SingleInstance? Instance { get; private set; }
+
+    /// <summary>Avviato con --screenshot: niente area di notifica né dati reali.</summary>
+    public static bool ScreenshotMode { get; private set; }
 
     [STAThread]
-    private static void Main(string[] args)
+    public static int Main(string[] args)
     {
+        // Date e numeri in italiano anche su un sistema in un'altra lingua.
+        CultureInfo.DefaultThreadCurrentCulture = CultureInfo.DefaultThreadCurrentUICulture = Fmt.It;
+        CultureInfo.CurrentCulture = CultureInfo.CurrentUICulture = Fmt.It;
+
         // Chiamato dal disinstallatore: toglie le notifiche e la loro registrazione in Windows.
         if (args.Contains("--uninstall-notifications", StringComparer.OrdinalIgnoreCase))
         {
             Toast.Uninstall();
-            return;
+            return 0;
+        }
+
+        int shot = Array.IndexOf(args, "--screenshot");
+        if (shot >= 0 && shot + 1 < args.Length)
+        {
+            ScreenshotMode = true;
+            return Screenshots.Run(args[shot + 1]);
         }
 
         bool startup = args.Contains("--startup", StringComparer.OrdinalIgnoreCase);
-
-        using var mutex = new Mutex(true, MutexName, out bool createdNew);
-        if (!createdNew)
+        Instance = SingleInstance.TryAcquire();
+        if (Instance is null)
         {
             // Già in esecuzione: se avviata a mano chiede all'istanza attiva di aprire la finestra.
-            if (!startup && EventWaitHandle.TryOpenExisting(ShowEventName, out var existing))
-            {
-                existing.Set();
-                existing.Dispose();
-            }
-            return;
+            if (!startup) SingleInstance.SignalShow();
+            return 0;
         }
 
-        using var showEvent = new EventWaitHandle(false, EventResetMode.AutoReset, ShowEventName);
+        AppDomain.CurrentDomain.UnhandledException += (_, e) => Log.Error(e.ExceptionObject as Exception);
+        Dispatcher.UIThread.UnhandledException += (_, e) =>
+        {
+            Log.Error(e.Exception);
+            e.Handled = true;
+            _ = Views.MessageDialog.Show(null,
+                $"Si è verificato un errore:\n{e.Exception.Message}\n\nDettagli in: {Log.FilePath}", error: true);
+        };
 
-        ApplicationConfiguration.Initialize();
-        Application.ThreadException += (_, e) => ReportError(e.Exception);
-        AppDomain.CurrentDomain.UnhandledException += (_, e) => ReportError(e.ExceptionObject as Exception);
-
-        DataStore store;
         try
         {
-            store = new DataStore();
+            return BuildAvaloniaApp().StartWithClassicDesktopLifetime(args, ShutdownMode.OnExplicitShutdown);
         }
-        catch (Exception ex) when (ex is DataStoreException || DataStore.IsFileError(ex))
+        finally
         {
-            Log.Error(ex);
-            MessageBox.Show($"{ex.Message}\n\nL'app verrà chiusa per non alterare i dati.", "Consuntivo Ore",
-                MessageBoxButtons.OK, MessageBoxIcon.Error);
-            return;
+            Instance.Dispose();
         }
-
-        if (store.LoadProblems.Count > 0)
-        {
-            MessageBox.Show(
-                string.Join("\n\n", store.LoadProblems) +
-                $"\n\nL'app riparte senza quei dati. I backup degli ultimi giorni sono in:\n{store.BackupDirectory}",
-                "Consuntivo Ore", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-        }
-
-        Application.Run(new TrayApplicationContext(store, showEvent));
-        GC.KeepAlive(mutex);
     }
 
-    private static void ReportError(Exception? ex)
-    {
-        Log.Error(ex);
-        MessageBox.Show($"Si è verificato un errore:\n{ex?.Message}\n\nDettagli in: {Log.FilePath}", "Consuntivo Ore",
-            MessageBoxButtons.OK, MessageBoxIcon.Error);
-    }
+    // Usato anche dall'anteprima XAML degli IDE.
+    public static AppBuilder BuildAvaloniaApp() =>
+        AppBuilder.Configure<App>().UsePlatformDetect().WithInterFont().LogToTrace();
 }

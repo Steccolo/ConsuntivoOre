@@ -2,9 +2,7 @@ using System.Collections.ObjectModel;
 using Avalonia.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using ConsuntivoOre.Core;
-
-namespace TodoAvalonia;
+namespace ConsuntivoOre.ViewModels;
 
 /// <summary>Una riga dell'elenco, già pronta da mostrare (testi e colori).</summary>
 public sealed class TodoRow(TodoItem todo, decimal logged, DateOnly today)
@@ -45,6 +43,13 @@ public sealed partial class TodoViewModel : ObservableObject
         Refresh();
     }
 
+    /// <summary>Alla chiusura della finestra: smette di seguire i dati.</summary>
+    public void Detach()
+    {
+        _store.TodosChanged -= Refresh;
+        _store.EntriesChanged -= Refresh;
+    }
+
     public ObservableCollection<TodoRow> Rows { get; } = [];
 
     // --- form
@@ -60,6 +65,10 @@ public sealed partial class TodoViewModel : ObservableObject
     public partial Guid? EditingId { get; set; }
 
     public bool IsEditing => EditingId is not null;
+
+    /// <summary>Si sta scrivendo un todo: non va interrotto.</summary>
+    public bool HasUnsavedInput =>
+        IsEditing || Name.Length > 0 || Description.Length > 0 || PlannedHours is > 0 || DueDate is not null;
     public string SaveText => IsEditing ? "Salva modifiche" : "Aggiungi";
 
     // --- elenco

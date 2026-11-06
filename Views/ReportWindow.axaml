@@ -1,0 +1,77 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="using:ConsuntivoOre.ViewModels"
+        x:Class="ConsuntivoOre.Views.ReportWindow"
+        x:DataType="local:ReportViewModel"
+        Title="Report settimanale"
+        Icon="/Assets/app.ico"
+        Width="820" Height="680" MinWidth="640" MinHeight="520"
+        WindowStartupLocation="CenterScreen"
+        Background="#F3F4F6">
+
+  <Grid RowDefinitions="Auto,2*,*,Auto" Margin="12">
+
+    <!-- Settimana -->
+    <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,0,0,10">
+      <Button Content="◀" Command="{Binding PreviousWeekCommand}" ToolTip.Tip="Settimana precedente" />
+      <TextBlock Text="{Binding Title}" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" Margin="8,0" />
+      <Button Content="▶" Command="{Binding NextWeekCommand}" ToolTip.Tip="Settimana successiva" />
+      <Button Content="Questa settimana" Command="{Binding ThisWeekCommand}" />
+    </StackPanel>
+
+    <!-- Dettaglio: si copia la singola cella -->
+    <Border Classes="card" Grid.Row="1" Margin="0,0,0,10">
+      <Grid RowDefinitions="Auto,*,Auto">
+        <TextBlock Classes="title" Text="Dettaglio per giorno" />
+        <DataGrid x:Name="DetailsGrid" Classes="cells" Grid.Row="1" ItemsSource="{Binding Details}"
+                  SelectionMode="Single" IsReadOnly="True" CanUserSortColumns="False"
+                  CanUserReorderColumns="False" GridLinesVisibility="Horizontal"
+                  HeadersVisibility="Column" BorderThickness="0" ClipboardCopyMode="None">
+          <DataGrid.Styles>
+            <Style Selector="DataGridRow" x:DataType="local:ReportRow">
+              <Setter Property="Background" Value="{Binding Background}" />
+              <Setter Property="Foreground" Value="{Binding Foreground}" />
+              <Setter Property="FontWeight" Value="{Binding Weight}" />
+            </Style>
+          </DataGrid.Styles>
+          <DataGrid.ContextMenu>
+            <ContextMenu>
+              <MenuItem x:Name="CopyMenu" Header="Copia" InputGesture="Ctrl+C" />
+            </ContextMenu>
+          </DataGrid.ContextMenu>
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="Cliente" Binding="{Binding Client}" Width="200" x:DataType="local:ReportRow" />
+            <DataGridTextColumn Header="Ore" Binding="{Binding Hours}" Width="80" x:DataType="local:ReportRow" />
+            <DataGridTextColumn Header="Nota" Binding="{Binding Note}" Width="*" x:DataType="local:ReportRow" />
+          </DataGrid.Columns>
+        </DataGrid>
+        <TextBlock Classes="hint" Grid.Row="2" Text="{Binding Status}" Margin="0,8,0,0" />
+      </Grid>
+    </Border>
+
+    <!-- Totale per cliente -->
+    <Border Classes="card" Grid.Row="2" Margin="0,0,0,10">
+      <Grid RowDefinitions="Auto,*">
+        <TextBlock Classes="title" Text="Totale per cliente" />
+        <DataGrid Grid.Row="1" ItemsSource="{Binding ByClient}" IsReadOnly="True" CanUserSortColumns="False"
+                  CanUserReorderColumns="False" GridLinesVisibility="Horizontal" HeadersVisibility="Column"
+                  BorderThickness="0">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="Cliente" Binding="{Binding Client}" Width="*" x:DataType="local:ClientRow" />
+            <DataGridTextColumn Header="Ore" Binding="{Binding Hours}" Width="100" x:DataType="local:ClientRow" />
+            <DataGridTextColumn Header="%" Binding="{Binding Percent}" Width="100" x:DataType="local:ClientRow" />
+          </DataGrid.Columns>
+        </DataGrid>
+      </Grid>
+    </Border>
+
+    <Grid Grid.Row="3" ColumnDefinitions="*,Auto">
+      <TextBlock Text="{Binding Total}" FontWeight="Bold" VerticalAlignment="Center" />
+      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+        <Button Content="Copia testo" Command="{Binding CopyTextCommand}" />
+        <Button Content="Esporta CSV…" Command="{Binding ExportCsvCommand}" />
+        <Button Content="Chiudi" x:Name="CloseButton" IsCancel="True" />
+      </StackPanel>
+    </Grid>
+  </Grid>
+</Window>

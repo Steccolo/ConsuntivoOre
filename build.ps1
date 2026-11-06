@@ -5,10 +5,12 @@ Set-Location $PSScriptRoot
 if (-not (Test-Path "Assets\app.ico")) { & "$PSScriptRoot\tools\MakeIcon.ps1" }
 
 Remove-Item -Recurse -Force publish -ErrorAction SilentlyContinue
-dotnet publish ConsuntivoOre.csproj -c Release -r win-x64 --self-contained true `
+dotnet publish ConsuntivoOre.csproj -c Release -f net10.0-windows10.0.17763.0 -r win-x64 --self-contained true `
     -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true `
     -p:EnableCompressionInSingleFile=true -p:DebugType=none -o publish
 if ($LASTEXITCODE -ne 0) { throw "dotnet publish non riuscito" }
+# Simboli di debug delle librerie native: non servono e pesano oltre 100 MB.
+Remove-Item publish\*.pdb -ErrorAction SilentlyContinue
 
 $iscc = @(
     "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe",
