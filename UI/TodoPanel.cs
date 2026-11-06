@@ -40,7 +40,7 @@ internal sealed class TodoPanel : UserControl
     private static class RowStyles
     {
         public static readonly Highlight Done = new(Color.FromArgb(220, 252, 231), Color.FromArgb(20, 83, 45));
-        public static readonly Highlight DueToday = new(Color.FromArgb(254, 249, 195), Color.FromArgb(194, 65, 12));
+        public static readonly Highlight DueToday = new(Color.FromArgb(254, 249, 195), Color.Black);
         public static readonly Highlight Overdue = new(Color.FromArgb(254, 249, 195), Color.FromArgb(220, 38, 38));
     }
 
@@ -156,7 +156,7 @@ internal sealed class TodoPanel : UserControl
             decimal done = _store.HoursForTodo(todo.Id);
             var item = new ListViewItem(todo.Name) { Tag = todo.Id, UseItemStyleForSubItems = false };
             item.SubItems.Add(todo.PlannedHours > 0 ? Fmt.Hours(todo.PlannedHours) : "");
-            var doneCell = item.SubItems.Add(done > 0 ? $"✓ {Fmt.Hours(done)} h" : "");
+            var doneCell = item.SubItems.Add(done > 0 ? $"{Fmt.Hours(done)} h" : "");
             item.SubItems.Add(todo.DueDate is { } d ? Fmt.Date(d) : "");
             item.SubItems.Add(Ui.OneLine(todo.Description));
 

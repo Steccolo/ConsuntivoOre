@@ -15,9 +15,9 @@ Si avvia insieme a Windows, apre la scheda **Todo** e resta nell'area di notific
   - il nome (obbligatorio);
   - una descrizione (obbligatoria);
   - le ore previste (facoltative);
-  - la data entro cui completarlo (facoltativa). I task in scadenza oggi sono evidenziati in giallo con il testo arancione, quelli scaduti in giallo con il testo rosso.
+  - la data entro cui completarlo (facoltativa). I task in scadenza oggi sono evidenziati in giallo con il testo nero, quelli scaduti in giallo con il testo rosso.
 
-  Con **Consuntiva…** registri le ore del task: il giorno proposto è oggi, ma puoi sceglierne un altro. Il nome diventa il cliente e la descrizione la nota. Le ore proposte sono quelle previste ancora da fare (se le hai indicate). Il task consuntivato resta in elenco, evidenziato in verde, con la spunta e le ore registrate nella colonna **Consuntivato**; puoi consuntivarlo ancora in un altro giorno.
+  Con **Consuntiva…** registri le ore del task: il giorno proposto è oggi, ma puoi sceglierne un altro. Il nome diventa il cliente e la descrizione la nota. Le ore proposte sono quelle previste ancora da fare (se le hai indicate). Il task consuntivato resta in elenco, evidenziato in verde, con le ore registrate nella colonna **Consuntivato**; puoi consuntivarlo ancora in un altro giorno.
 
   Con **Completato** segni come fatto un task senza consuntivarlo: anche lui resta in elenco, in verde, in fondo ai task da fare; **Riapri** lo riporta tra quelli da fare ed **Elimina** lo toglie del tutto.
 - **Consuntivazione.** Per ogni attività indichi:
