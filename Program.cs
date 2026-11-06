@@ -50,7 +50,7 @@ internal static class Program
                 "Consuntivo Ore", MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
 
-        Application.Run(new TrayApplicationContext(store, showEvent, openEntryOnStart: !startup));
+        Application.Run(new TrayApplicationContext(store, showEvent));
         GC.KeepAlive(mutex);
     }
 

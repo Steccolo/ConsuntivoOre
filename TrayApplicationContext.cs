@@ -21,7 +21,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private Action? _balloonAction;
     private DateTime? _balloonShownAt;
 
-    public TrayApplicationContext(DataStore store, EventWaitHandle showEvent, bool openEntryOnStart)
+    public TrayApplicationContext(DataStore store, EventWaitHandle showEvent)
     {
         _store = store;
         _ = _invoker.Handle; // crea l'handle per poter fare marshalling sul thread UI
@@ -32,6 +32,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         menu.Items.AddRange(
         [
             entryItem,
+            new ToolStripMenuItem("Todo", null, (_, _) => ShowMain(MainTab.Todo)),
             new ToolStripMenuItem("Report settimanale", null, (_, _) => ShowReport()),
             new ToolStripMenuItem("Non ricordarmelo oggi", null, (_, _) => _store.SkipReminder(Today)),
             new ToolStripMenuItem("Impostazioni…", null, (_, _) => ShowSettings()),
@@ -48,7 +49,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         };
         _tray.MouseClick += (_, e) =>
         {
-            if (e.Button == MouseButtons.Left) ShowEntry();
+            if (e.Button == MouseButtons.Left) ShowMain();
         };
         _tray.BalloonTipClicked += (_, _) =>
         {
@@ -64,6 +65,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         };
 
         _store.EntriesChanged += OnEntriesChanged;
+        _store.TodosChanged += OnTodosChanged;
 
         // Primo controllo dopo pochi secondi dall'avvio, poi ogni 20 secondi.
         _timer.Tick += (_, _) =>
@@ -76,30 +78,51 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
         // Un secondo avvio dell'exe segnala questo evento per far riaprire la finestra.
         _showWait = ThreadPool.RegisterWaitForSingleObject(showEvent,
-            (_, _) => _invoker.BeginInvoke((Action)(() => ShowEntry())),
+            (_, _) => _invoker.BeginInvoke((Action)(() => ShowMain())),
             null, Timeout.Infinite, executeOnlyOnce: false);
 
         UpdateTooltip();
-        if (openEntryOnStart)
-            _invoker.BeginInvoke((Action)(() => ShowEntry()));
+        // All'avvio (anche con Windows) la finestra si apre sulla scheda dei todo.
+        _invoker.BeginInvoke((Action)(() => ShowMain(MainTab.Todo)));
     }
 
     private static DateOnly Today => DateOnly.FromDateTime(DateTime.Now);
 
     // ------------------------------------------------------------ finestre
 
+    /// <summary>Mostra la finestra principale; senza scheda indicata resta su quella attiva.</summary>
+    private void ShowMain(MainTab? tab = null)
+    {
+        if (_entryForm is null || _entryForm.IsDisposed)
+        {
+            _entryForm = new EntryForm(_store, Today, tab ?? MainTab.Todo);
+            _entryForm.FormClosed += (_, _) => _entryForm = null;
+        }
+        else
+        {
+            if (!_entryForm.HasUnsavedEntry) _entryForm.MoveToTodayIfStale();
+            if (tab is { } t) _entryForm.ShowTab(t);
+        }
+        Ui.BringToFront(_entryForm);
+    }
+
     private void ShowEntry(DateOnly? day = null)
     {
         if (_entryForm is null || _entryForm.IsDisposed)
         {
-            _entryForm = new EntryForm(_store, day ?? Today);
+            _entryForm = new EntryForm(_store, day ?? Today, MainTab.Entry);
             _entryForm.FormClosed += (_, _) => _entryForm = null;
         }
-        else if (!_entryForm.HasUnsavedInput)
+        else
         {
             // Con dati in corso di inserimento il giorno non cambia: si azzererebbe il form.
-            if (day is { } d) _entryForm.SetDay(d);
-            else _entryForm.MoveToTodayIfStale();
+            if (!_entryForm.HasUnsavedEntry)
+            {
+                if (day is { } d) _entryForm.SetDay(d);
+                else _entryForm.MoveToTodayIfStale();
+            }
+            // Non porta via dalla scheda dei todo chi sta scrivendo un todo.
+            if (!_entryForm.HasUnsavedInput || _entryForm.HasUnsavedEntry) _entryForm.ShowTab(MainTab.Entry);
         }
         Ui.BringToFront(_entryForm);
     }
@@ -130,10 +153,19 @@ internal sealed class TrayApplicationContext : ApplicationContext
         Ui.BringToFront(_settingsForm);
     }
 
+    private void OnTodosChanged()
+    {
+        if (_entryForm is { IsDisposed: false }) _entryForm.RefreshTodos();
+    }
+
     private void OnEntriesChanged()
     {
         UpdateTooltip();
-        if (_entryForm is { IsDisposed: false }) _entryForm.RefreshList();
+        if (_entryForm is { IsDisposed: false })
+        {
+            _entryForm.RefreshList();
+            _entryForm.RefreshTodos(); // colonna delle ore fatte
+        }
         if (_reportForm is { IsDisposed: false }) _reportForm.RefreshData();
     }
 

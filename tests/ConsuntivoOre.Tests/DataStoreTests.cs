@@ -126,4 +126,67 @@ public sealed class DataStoreTests : IDisposable
         Assert.Equal(7, files.Length);
         Assert.Contains(files, f => f.EndsWith($"entries-{DateTime.Now:yyyyMMdd}.json"));
     }
+
+    [Fact]
+    public void Todos_SurviveReloadAndAreOrderedByDueDate()
+    {
+        var store = new DataStore(_dir);
+        store.AddTodo(new TodoItem { Name = "Senza data", PlannedHours = 1 });
+        store.AddTodo(new TodoItem { Name = "Tardi", PlannedHours = 2, DueDate = Day.AddDays(5) });
+        store.AddTodo(new TodoItem { Name = "Presto", PlannedHours = 3, Description = "d", DueDate = Day });
+
+        var names = new DataStore(_dir).OpenTodos().Select(t => t.Name);
+        Assert.Equal(["Presto", "Tardi", "Senza data"], names);
+    }
+
+    [Fact]
+    public void CompletedTodo_LeavesTheOpenList()
+    {
+        var store = new DataStore(_dir);
+        var todo = new TodoItem { Name = "Task", PlannedHours = 1 };
+        store.AddTodo(todo);
+        store.CompleteTodo(todo.Id);
+
+        var reloaded = new DataStore(_dir);
+        Assert.Empty(reloaded.OpenTodos());
+        Assert.True(reloaded.FindTodo(todo.Id)!.IsDone);
+    }
+
+    [Fact]
+    public void HoursLoggedFromTodo_AreCounted()
+    {
+        var store = new DataStore(_dir);
+        var todo = new TodoItem { Name = "Task", PlannedHours = 4 };
+        store.AddTodo(todo);
+        store.Add(new TimeEntry { Date = Day, Hours = 1.5m, Client = "Task", TodoId = todo.Id });
+        store.Add(Entry(2));
+
+        Assert.Equal(1.5m, new DataStore(_dir).HoursForTodo(todo.Id));
+    }
+
+    [Fact]
+    public void FailedTodoUpdate_IsRolledBack()
+    {
+        var store = new DataStore(_dir);
+        var todo = new TodoItem { Name = "Task", PlannedHours = 1 };
+        store.AddTodo(todo);
+        int notified = 0;
+        store.TodosChanged += () => notified++;
+        Directory.CreateDirectory(PathOf("todos.json.tmp"));
+
+        Assert.NotNull(Record.Exception(() => store.UpdateTodo(todo.Id, "Altro", 9, "x", Day)));
+        Assert.Equal(("Task", 1m, "", (DateOnly?)null), (todo.Name, todo.PlannedHours, todo.Description, todo.DueDate));
+        Assert.NotNull(Record.Exception(() => store.CompleteTodo(todo.Id)));
+        Assert.False(todo.IsDone);
+        Assert.Equal(0, notified);
+    }
+
+    [Fact]
+    public void UnreadableTodos_AreSetAsideAndReported()
+    {
+        File.WriteAllText(PathOf("todos.json"), "{ rotto");
+        var store = new DataStore(_dir);
+        Assert.Single(store.LoadProblems);
+        Assert.Empty(store.OpenTodos());
+    }
 }

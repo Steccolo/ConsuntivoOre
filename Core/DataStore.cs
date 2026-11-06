@@ -24,7 +24,9 @@ public sealed class DataStore
     private readonly string _entriesPath;
     private readonly string _settingsPath;
     private readonly string _statePath;
+    private readonly string _todosPath;
     private readonly List<TimeEntry> _entries;
+    private readonly List<TodoItem> _todos;
     private readonly List<string> _loadProblems = [];
 
     public string DataDirectory { get; }
@@ -38,6 +40,9 @@ public sealed class DataStore
     /// <summary>Sollevato dopo ogni aggiunta, modifica o eliminazione.</summary>
     public event Action? EntriesChanged;
 
+    /// <summary>Sollevato dopo ogni modifica ai todo.</summary>
+    public event Action? TodosChanged;
+
     public DataStore(string? directory = null)
     {
         DataDirectory = directory ?? DefaultDirectory;
@@ -45,11 +50,16 @@ public sealed class DataStore
         _entriesPath = Path.Combine(DataDirectory, "entries.json");
         _settingsPath = Path.Combine(DataDirectory, "settings.json");
         _statePath = Path.Combine(DataDirectory, "state.json");
+        _todosPath = Path.Combine(DataDirectory, "todos.json");
         Directory.CreateDirectory(DataDirectory);
 
         var entries = Load(_entriesPath, ParseEntries);
         _entries = entries ?? [];
-        if (entries is not null) BackupEntries();
+        if (entries is not null) Backup(_entriesPath, "entries");
+
+        var todos = Load(_todosPath, ParseTodos);
+        _todos = todos ?? [];
+        if (todos is not null) Backup(_todosPath, "todos");
 
         var settings = Load(_settingsPath, ParseSettings);
         Settings = settings ?? new AppSettings();
@@ -105,6 +115,52 @@ public sealed class DataStore
         CommitEntries(undo: () => _entries.Insert(index, entry));
     }
 
+    // ------------------------------------------------------------ todo
+
+    /// <summary>Todo da completare: prima quelli con scadenza (la più vicina in alto), poi gli altri.</summary>
+    public IReadOnlyList<TodoItem> OpenTodos() =>
+        _todos.Where(t => !t.IsDone)
+              .OrderBy(t => t.DueDate is null)
+              .ThenBy(t => t.DueDate)
+              .ThenBy(t => t.CreatedAt)
+              .ToList();
+
+    public TodoItem? FindTodo(Guid id) => _todos.FirstOrDefault(t => t.Id == id);
+
+    /// <summary>Ore già consuntivate a partire dal todo.</summary>
+    public decimal HoursForTodo(Guid todoId) => _entries.Where(e => e.TodoId == todoId).Sum(e => e.Hours);
+
+    public void AddTodo(TodoItem todo)
+    {
+        _todos.Add(todo);
+        CommitTodos(undo: () => _todos.Remove(todo));
+    }
+
+    public void UpdateTodo(Guid id, string name, decimal plannedHours, string description, DateOnly? dueDate)
+    {
+        var todo = FindTodo(id) ?? throw new InvalidOperationException("Todo non trovato.");
+        var old = (todo.Name, todo.PlannedHours, todo.Description, todo.DueDate);
+        (todo.Name, todo.PlannedHours, todo.Description, todo.DueDate) = (name, plannedHours, description, dueDate);
+        CommitTodos(undo: () => (todo.Name, todo.PlannedHours, todo.Description, todo.DueDate) = old);
+    }
+
+    public void CompleteTodo(Guid id)
+    {
+        var todo = FindTodo(id) ?? throw new InvalidOperationException("Todo non trovato.");
+        if (todo.IsDone) return;
+        todo.CompletedAt = DateTime.Now;
+        CommitTodos(undo: () => todo.CompletedAt = null);
+    }
+
+    public void DeleteTodo(Guid id)
+    {
+        int index = _todos.FindIndex(t => t.Id == id);
+        if (index < 0) return;
+        var todo = _todos[index];
+        _todos.RemoveAt(index);
+        CommitTodos(undo: () => _todos.Insert(index, todo));
+    }
+
     public void SaveSettings() => Save(_settingsPath, Settings);
 
     public void SaveState() => Save(_statePath, State);
@@ -141,6 +197,20 @@ public sealed class DataStore
         EntriesChanged?.Invoke();
     }
 
+    private void CommitTodos(Action undo)
+    {
+        try
+        {
+            Save(_todosPath, new TodosFile { SchemaVersion = CurrentSchemaVersion, Todos = _todos });
+        }
+        catch
+        {
+            undo();
+            throw;
+        }
+        TodosChanged?.Invoke();
+    }
+
     // Va scritto subito: il prossimo salvataggio delle impostazioni toglierà quei campi da settings.json.
     private void MigrateState()
     {
@@ -154,16 +224,16 @@ public sealed class DataStore
         }
     }
 
-    private void BackupEntries()
+    private void Backup(string path, string prefix)
     {
         try
         {
-            if (!File.Exists(_entriesPath)) return;
+            if (!File.Exists(path)) return;
             Directory.CreateDirectory(BackupDirectory);
-            string today = Path.Combine(BackupDirectory, $"entries-{DateTime.Now:yyyyMMdd}.json");
-            if (!File.Exists(today)) File.Copy(_entriesPath, today);
+            string today = Path.Combine(BackupDirectory, $"{prefix}-{DateTime.Now:yyyyMMdd}.json");
+            if (!File.Exists(today)) File.Copy(path, today);
 
-            foreach (string old in Directory.GetFiles(BackupDirectory, "entries-*.json")
+            foreach (string old in Directory.GetFiles(BackupDirectory, $"{prefix}-*.json")
                          .OrderDescending(StringComparer.Ordinal).Skip(BackupsToKeep))
                 File.Delete(old);
         }
@@ -191,6 +261,20 @@ public sealed class DataStore
         return entries;
     }
 
+    private static List<TodoItem>? ParseTodos(string json)
+    {
+        var todos = CheckVersion(Deserialize<TodosFile>(json))?.Todos;
+        if (todos is null) return null;
+
+        todos.RemoveAll(t => t is null);
+        foreach (var t in todos)
+        {
+            t.Name ??= "";
+            t.Description ??= "";
+        }
+        return todos;
+    }
+
     private static AppSettings? ParseSettings(string json)
     {
         var settings = Deserialize<AppSettings>(json);
@@ -198,7 +282,7 @@ public sealed class DataStore
         return settings;
     }
 
-    private static EntriesFile? CheckVersion(EntriesFile? file)
+    private static T? CheckVersion<T>(T? file) where T : VersionedFile
     {
         if (file is not null) CheckSchema(file.SchemaVersion);
         return file;
@@ -270,9 +354,18 @@ public sealed class DataStore
         File.Move(tmp, path, overwrite: true);
     }
 
-    private sealed class EntriesFile
+    private abstract class VersionedFile
     {
         public int SchemaVersion { get; set; }
+    }
+
+    private sealed class EntriesFile : VersionedFile
+    {
         public List<TimeEntry>? Entries { get; set; }
+    }
+
+    private sealed class TodosFile : VersionedFile
+    {
+        public List<TodoItem>? Todos { get; set; }
     }
 }

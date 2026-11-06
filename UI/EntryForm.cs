@@ -1,9 +1,15 @@
 namespace ConsuntivoOre.UI;
 
-/// <summary>Finestra di consuntivazione: ore, cliente e nota per il giorno scelto.</summary>
+public enum MainTab { Todo, Entry }
+
+/// <summary>Finestra principale: scheda dei todo e scheda di consuntivazione (ore, cliente e nota per il giorno scelto).</summary>
 internal sealed class EntryForm : BaseForm
 {
     private readonly DataStore _store;
+    private readonly TabControl _tabs = new() { Dock = DockStyle.Fill };
+    private readonly TabPage _todoTab = new("Todo");
+    private readonly TabPage _entryTab = new("Consuntiva ore");
+    private readonly TodoPanel _todo;
 
     private readonly DateTimePicker _date = new() { Format = DateTimePickerFormat.Long, Width = 240 };
     private readonly NumericUpDown _hours = new()
@@ -36,12 +42,12 @@ internal sealed class EntryForm : BaseForm
     private Guid? _editingId;
     private DateOnly _lastSelectedOn = DateOnly.FromDateTime(DateTime.Today);
 
-    public EntryForm(DataStore store, DateOnly day)
+    public EntryForm(DataStore store, DateOnly day, MainTab tab)
     {
         _store = store;
-        Text = "Consuntiva ore";
-        ClientSize = new Size(620, 560);
-        MinimumSize = new Size(540, 500);
+        Text = "Consuntivo Ore";
+        ClientSize = new Size(700, 600);
+        MinimumSize = new Size(600, 540);
         KeyPreview = true;
 
         _save = Ui.Button("Aggiungi", Save, 110);
@@ -117,17 +123,48 @@ internal sealed class EntryForm : BaseForm
         root.Controls.Add(nav, 0, 0);
         root.Controls.Add(Ui.Group("Attività", form), 0, 1);
         root.Controls.Add(listGroup, 0, 2);
-        Controls.Add(root);
+        _entryTab.Controls.Add(root);
 
-        AcceptButton = _save;
+        _todo = new TodoPanel(store);
+        _todoTab.Controls.Add(_todo);
+        _tabs.TabPages.AddRange([_todoTab, _entryTab]);
+        _tabs.SelectedIndexChanged += (_, _) => OnTabChanged();
+        Controls.Add(_tabs);
+
         RefreshList();
-        Shown += (_, _) => FocusHours();
+        ShowTab(tab);
+        Shown += (_, _) => FocusActiveTab();
+    }
+
+    private bool TodoActive => _tabs.SelectedTab == _todoTab;
+
+    public void ShowTab(MainTab tab)
+    {
+        _tabs.SelectedTab = tab == MainTab.Todo ? _todoTab : _entryTab;
+        OnTabChanged();
+    }
+
+    public void RefreshTodos() => _todo.RefreshList();
+
+    private void OnTabChanged()
+    {
+        AcceptButton = TodoActive ? _todo.SaveButton : _save;
+        if (Visible) FocusActiveTab();
+    }
+
+    private void FocusActiveTab()
+    {
+        if (TodoActive) _todo.FocusInput();
+        else FocusHours();
     }
 
     private DateOnly SelectedDay => DateOnly.FromDateTime(_date.Value);
 
-    /// <summary>Ci sono dati che andrebbero persi azzerando il form.</summary>
-    public bool HasUnsavedInput => _editingId is not null || _hours.Value != 0 || _note.TextLength > 0;
+    /// <summary>Ci sono dati della consuntivazione che andrebbero persi azzerando il form.</summary>
+    public bool HasUnsavedEntry => _editingId is not null || _hours.Value != 0 || _note.TextLength > 0;
+
+    /// <summary>Si sta scrivendo in una delle due schede.</summary>
+    public bool HasUnsavedInput => HasUnsavedEntry || _todo.HasUnsavedInput;
 
     public void SetDay(DateOnly day) => _date.Value = day.ToDateTime(TimeOnly.MinValue);
 
@@ -279,10 +316,16 @@ internal sealed class EntryForm : BaseForm
         switch (keyData)
         {
             case Keys.Control | Keys.Enter:
-                Save();
+                if (TodoActive) _todo.Save();
+                else Save();
                 return true;
             case Keys.Escape:
-                if (_client.DroppedDown) _client.DroppedDown = false;
+                if (TodoActive)
+                {
+                    if (_todo.IsEditing) _todo.ResetForm();
+                    else if (ConfirmDiscard()) Close();
+                }
+                else if (_client.DroppedDown) _client.DroppedDown = false;
                 else if (_editingId is not null) ResetForm();
                 else if (ConfirmDiscard()) Close();
                 return true;

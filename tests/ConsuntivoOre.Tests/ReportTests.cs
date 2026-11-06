@@ -42,4 +42,14 @@ public class ReportTests
     [Fact]
     public void Title_DoesNotDependOnSystemCulture() =>
         Assert.Equal("Settimana 45 · 02/11 – 08/11/2026", ReportBuilder.Title(new DateOnly(2026, 11, 2)));
+
+    [Theory]
+    [InlineData("1.5", "1h 30m")]
+    [InlineData("2", "2h")]
+    [InlineData("0.25", "15m")]
+    [InlineData("7.75", "7h 45m")]
+    [InlineData("1.33", "1h 20m")]
+    [InlineData("0", "0m")]
+    public void Duration_UsesJiraFormat(string hours, string expected) =>
+        Assert.Equal(expected, Fmt.Duration(decimal.Parse(hours, System.Globalization.CultureInfo.InvariantCulture)));
 }

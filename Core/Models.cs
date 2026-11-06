@@ -8,6 +8,24 @@ public sealed class TimeEntry
     public string Client { get; set; } = "";
     public string Note { get; set; } = "";
     public DateTime CreatedAt { get; set; } = DateTime.Now;
+    /// <summary>Todo da cui è stata consuntivata la voce, se c'è.</summary>
+    public Guid? TodoId { get; set; }
+}
+
+public sealed class TodoItem
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public string Name { get; set; } = "";
+    public decimal PlannedHours { get; set; }
+    public string Description { get; set; } = "";
+    /// <summary>Data entro cui completare il task (facoltativa).</summary>
+    public DateOnly? DueDate { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.Now;
+    /// <summary>Valorizzata quando il task è segnato come completato.</summary>
+    public DateTime? CompletedAt { get; set; }
+
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool IsDone => CompletedAt is not null;
 }
 
 public sealed class AppSettings

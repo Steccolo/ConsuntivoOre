@@ -8,10 +8,31 @@ internal sealed class ReportForm : BaseForm
 {
     private readonly DataStore _store;
     private readonly Label _title = new() { AutoSize = true, Margin = new Padding(10, 7, 10, 3) };
-    private readonly ListView _details = new()
+    // Griglia a celle singole: ore, cliente e nota si copiano uno alla volta (es. per Jira).
+    private readonly DataGridView _details = new()
     {
-        View = View.Details, FullRowSelect = true, Dock = DockStyle.Fill, ShowGroups = true,
+        Dock = DockStyle.Fill,
+        ReadOnly = true,
+        SelectionMode = DataGridViewSelectionMode.CellSelect,
+        MultiSelect = false,
+        RowHeadersVisible = false,
+        AllowUserToAddRows = false,
+        AllowUserToDeleteRows = false,
+        AllowUserToResizeRows = false,
+        AllowUserToOrderColumns = false,
+        BackgroundColor = SystemColors.Window,
+        BorderStyle = BorderStyle.None,
+        CellBorderStyle = DataGridViewCellBorderStyle.SingleHorizontal,
+        ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize,
+        AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.AllCells,
+        StandardTab = true,
     };
+    private readonly Label _copied = new()
+    {
+        AutoSize = true, ForeColor = SystemColors.GrayText, Margin = new Padding(3, 4, 3, 0),
+        Text = "Clicca un campo e premi Ctrl+C (o doppio clic) per copiarlo.",
+    };
+    private readonly System.Windows.Forms.Timer _copiedTimer = new() { Interval = 3000 };
     private readonly ListView _byClient = new()
     {
         View = View.Details, FullRowSelect = true, Dock = DockStyle.Fill,
@@ -39,17 +60,20 @@ internal sealed class ReportForm : BaseForm
             Ui.Button("▶", () => ShowWeek(_weekStart.AddDays(7)), 36),
             Ui.Button("Questa settimana", () => ShowWeek(DateOnly.FromDateTime(DateTime.Today)), 130));
 
-        _details.Columns.Add("Cliente", LogicalToDeviceUnits(170));
-        _details.Columns.Add("Ore", LogicalToDeviceUnits(60), HorizontalAlignment.Right);
-        _details.Columns.Add("Nota", LogicalToDeviceUnits(400));
-        _details.Resize += (_, _) => FitLastColumn(_details);
+        SetupDetails();
 
         _byClient.Columns.Add("Cliente", LogicalToDeviceUnits(250));
         _byClient.Columns.Add("Ore", LogicalToDeviceUnits(80), HorizontalAlignment.Right);
         _byClient.Columns.Add("%", LogicalToDeviceUnits(80), HorizontalAlignment.Right);
         _byClient.Resize += (_, _) => FitLastColumn(_byClient);
 
-        var detailsGroup = Ui.Group("Dettaglio per giorno", _details);
+        var detailsPanel = Ui.Grid(SizeType.Percent);
+        detailsPanel.AutoSize = false;
+        detailsPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        detailsPanel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        detailsPanel.Controls.Add(_details, 0, 0);
+        detailsPanel.Controls.Add(_copied, 0, 1);
+        var detailsGroup = Ui.Group("Dettaglio per giorno", detailsPanel);
         detailsGroup.AutoSize = false;
         var clientsGroup = Ui.Group("Totale per cliente", _byClient);
         clientsGroup.AutoSize = false;
@@ -89,35 +113,26 @@ internal sealed class ReportForm : BaseForm
         _entries = _store.EntriesBetween(_weekStart, weekEnd);
         _title.Text = ReportBuilder.Title(_weekStart);
 
-        _details.BeginUpdate();
-        _details.Items.Clear();
-        _details.Groups.Clear();
+        _details.SuspendLayout();
+        _details.Rows.Clear();
         for (int i = 0; i < 7; i++)
         {
             var day = _weekStart.AddDays(i);
             var dayEntries = _entries.Where(e => e.Date == day).ToList();
             if (dayEntries.Count == 0 && !_store.Settings.WorkDays.Contains(day.DayOfWeek)) continue;
 
-            var group = new ListViewGroup($"{Fmt.DayLong(day)}  —  {Fmt.Hours(dayEntries.Sum(e => e.Hours))} h")
-            {
-                CollapsedState = ListViewGroupCollapsedState.Expanded,
-            };
-            _details.Groups.Add(group);
-
-            if (dayEntries.Count == 0)
-            {
-                _details.Items.Add(new ListViewItem("nessuna attività", group) { ForeColor = SystemColors.GrayText });
-                continue;
-            }
+            AddDayHeader(Fmt.DayLong(day), $"{Fmt.Hours(dayEntries.Sum(e => e.Hours))} h",
+                dayEntries.Count == 0 ? "nessuna attività" : "");
             foreach (var e in dayEntries)
             {
-                var item = new ListViewItem(e.Client, group);
-                item.SubItems.Add(Fmt.Hours(e.Hours));
-                item.SubItems.Add(Ui.OneLine(e.Note));
-                _details.Items.Add(item);
+                int index = _details.Rows.Add(e.Client, Fmt.Hours(e.Hours), Ui.OneLine(e.Note));
+                // Nella copia le ore vanno nel formato di Jira e la nota resta su più righe, come è stata scritta.
+                _details.Rows[index].Cells[1].Tag = Fmt.Duration(e.Hours);
+                _details.Rows[index].Cells[2].Tag = e.Note;
             }
         }
-        _details.EndUpdate();
+        _details.ClearSelection();
+        _details.ResumeLayout();
 
         decimal total = _entries.Sum(e => e.Hours);
         _byClient.BeginUpdate();
@@ -137,8 +152,91 @@ internal sealed class ReportForm : BaseForm
             ? $"Totale settimana: {Fmt.Hours(total)} h su {Fmt.Hours(expected)} h previste"
             : $"Totale settimana: {Fmt.Hours(total)} h";
 
-        FitLastColumn(_details);
         FitLastColumn(_byClient);
+    }
+
+    private void SetupDetails()
+    {
+        _details.Columns.Add("Cliente", "Cliente");
+        _details.Columns.Add("Ore", "Ore");
+        _details.Columns.Add("Nota", "Nota");
+        _details.Columns[0].Width = LogicalToDeviceUnits(190);
+        _details.Columns[1].Width = LogicalToDeviceUnits(70);
+        _details.Columns[1].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
+        _details.Columns[2].AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
+        foreach (DataGridViewColumn column in _details.Columns)
+            column.SortMode = DataGridViewColumnSortMode.NotSortable;
+        _details.ColumnHeadersDefaultCellStyle.Font = new Font(Font, FontStyle.Bold);
+        _details.DefaultCellStyle.Padding = new Padding(2, 3, 2, 3);
+        _details.EnableHeadersVisualStyles = true;
+
+        _details.KeyDown += (_, e) =>
+        {
+            if (e.KeyData is (Keys.Control | Keys.C) or (Keys.Control | Keys.Insert))
+            {
+                CopyCell(_details.CurrentCell);
+                e.SuppressKeyPress = e.Handled = true;
+            }
+        };
+        _details.CellDoubleClick += (_, e) =>
+        {
+            if (e.RowIndex >= 0 && e.ColumnIndex >= 0) CopyCell(_details.Rows[e.RowIndex].Cells[e.ColumnIndex]);
+        };
+
+        var menu = new ContextMenuStrip();
+        menu.Items.Add("Copia", null, (_, _) => CopyCell(_details.CurrentCell));
+        _details.CellMouseDown += (_, e) =>
+        {
+            // Il clic destro seleziona la cella su cui si apre il menu.
+            if (e.Button == MouseButtons.Right && e.RowIndex >= 0 && e.ColumnIndex >= 0)
+                _details.CurrentCell = _details.Rows[e.RowIndex].Cells[e.ColumnIndex];
+        };
+        _details.CellContextMenuStripNeeded += (_, e) =>
+        {
+            if (e.RowIndex >= 0 && e.ColumnIndex >= 0) e.ContextMenuStrip = menu;
+        };
+
+        _copiedTimer.Tick += (_, _) =>
+        {
+            _copiedTimer.Stop();
+            _copied.Text = "Clicca un campo e premi Ctrl+C (o doppio clic) per copiarlo.";
+        };
+        FormClosed += (_, _) => _copiedTimer.Dispose();
+    }
+
+    /// <summary>Riga di intestazione del giorno: non è una voce, quindi non si copia.</summary>
+    private void AddDayHeader(string day, string hours, string note)
+    {
+        int index = _details.Rows.Add(day, hours, note);
+        var row = _details.Rows[index];
+        row.Tag = "giorno";
+        var style = row.DefaultCellStyle;
+        style.Font = new Font(Font, FontStyle.Bold);
+        style.BackColor = style.SelectionBackColor = SystemColors.Control;
+        style.ForeColor = style.SelectionForeColor = SystemColors.ControlText;
+        row.Cells[2].Style.ForeColor = row.Cells[2].Style.SelectionForeColor = SystemColors.GrayText;
+    }
+
+    private void CopyCell(DataGridViewCell? cell)
+    {
+        if (cell is null || cell.OwningRow?.Tag is "giorno") return;
+        string text = cell.Tag as string ?? cell.FormattedValue?.ToString() ?? "";
+        if (text.Length == 0) return;
+        try
+        {
+            Clipboard.SetText(text);
+        }
+        catch (ExternalException ex)
+        {
+            Log.Error(ex);
+            Ui.ShowWarning(this, "Gli appunti sono occupati da un'altra applicazione: riprova.");
+            return;
+        }
+        string preview = Ui.OneLine(text);
+        if (preview.Length > 60) preview = preview[..57] + "…";
+        _copied.Text = $"Copiato: {preview}";
+        _copiedTimer.Stop();
+        _copiedTimer.Start();
     }
 
     private void CopyText()
