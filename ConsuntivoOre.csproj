@@ -13,7 +13,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Remove="Core\**;tests\**" />
+    <Compile Remove="Core\**;tests\**;prototypes\**" />
     <EmbeddedResource Include="Assets\app.ico" LogicalName="app.ico" />
     <ProjectReference Include="Core\ConsuntivoOre.Core.csproj" />
   </ItemGroup>

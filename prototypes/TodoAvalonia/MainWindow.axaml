@@ -1,0 +1,159 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="using:TodoAvalonia"
+        x:Class="TodoAvalonia.MainWindow"
+        x:DataType="local:MainViewModel"
+        Title="Consuntivo Ore — prototipo Avalonia"
+        Width="900" Height="680" MinWidth="720" MinHeight="560"
+        WindowStartupLocation="CenterScreen"
+        Background="#F3F4F6">
+
+  <TabControl x:Name="Tabs" Margin="8,4,8,8">
+    <TabItem Header="Todo">
+      <Grid RowDefinitions="Auto,*" Margin="0,6,0,0" DataContext="{Binding Todo}" x:DataType="local:TodoViewModel">
+
+        <!-- Nuovo todo -->
+        <Border Classes="card" Grid.Row="0" Margin="0,0,0,10">
+          <StackPanel>
+            <TextBlock Classes="title" Text="Nuovo todo" />
+            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto" RowSpacing="8">
+              <Label Classes="field" Grid.Row="0" Content="Nome" />
+              <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Name}" PlaceholderText="es. Acme" />
+
+              <Label Classes="field" Grid.Row="1" Content="Descrizione" VerticalAlignment="Top" Margin="0,6,12,0" />
+              <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Description}" AcceptsReturn="True"
+                       TextWrapping="Wrap" Height="52" PlaceholderText="Cosa c'è da fare" />
+
+              <Label Classes="field" Grid.Row="2" Content="Ore previste" />
+              <Grid Grid.Row="2" Grid.Column="1" ColumnDefinitions="Auto,Auto,Auto,*,Auto" ColumnSpacing="10">
+                <NumericUpDown Value="{Binding PlannedHours}" Minimum="0" Maximum="999" Increment="0.5"
+                               FormatString="0.##" Width="165" PlaceholderText="facoltative" />
+                <TextBlock Grid.Column="1" Text="Entro il" VerticalAlignment="Center" Margin="12,0,0,0" />
+                <CalendarDatePicker Grid.Column="2" SelectedDate="{Binding DueDate}" PlaceholderText="facoltativa" Width="160" />
+                <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="8">
+                  <Button Content="Annulla modifica" Command="{Binding ResetFormCommand}" IsVisible="{Binding IsEditing}" />
+                  <Button Classes="accent" Content="{Binding SaveText}" Command="{Binding SaveCommand}" IsDefault="True" MinWidth="110" />
+                </StackPanel>
+              </Grid>
+            </Grid>
+
+            <TextBlock Classes="error" Text="{Binding Error}" Margin="0,8,0,0" TextWrapping="Wrap"
+                       IsVisible="{Binding Error, Converter={x:Static ObjectConverters.IsNotNull}}" />
+          </StackPanel>
+        </Border>
+
+        <!-- Elenco -->
+        <Border Classes="card" Grid.Row="1">
+          <Grid RowDefinitions="Auto,*,Auto">
+            <TextBlock Classes="title" Text="Da fare" />
+            <DataGrid x:Name="TodoGrid" Grid.Row="1" ItemsSource="{Binding Rows}" SelectedItem="{Binding Selected}"
+                      SelectionMode="Single" IsReadOnly="True" CanUserSortColumns="False"
+                      CanUserReorderColumns="False" GridLinesVisibility="Horizontal"
+                      HeadersVisibility="Column" BorderThickness="0">
+              <DataGrid.Styles>
+                <!-- Colori per stato: verde = fatto, giallo = in scadenza (testo nero) o scaduto (testo rosso). -->
+                <Style Selector="DataGridRow" x:DataType="local:TodoRow">
+                  <Setter Property="Background" Value="{Binding Background}" />
+                  <Setter Property="Foreground" Value="{Binding Foreground}" />
+                  <Setter Property="FontWeight" Value="{Binding Weight}" />
+                </Style>
+              </DataGrid.Styles>
+              <DataGrid.Columns>
+                <DataGridTextColumn Header="Nome" Binding="{Binding Name}" Width="160" x:DataType="local:TodoRow" />
+                <DataGridTextColumn Header="Previste" Binding="{Binding Planned}" Width="95" x:DataType="local:TodoRow" />
+                <DataGridTextColumn Header="Consuntivato" Binding="{Binding Logged}" Width="130" x:DataType="local:TodoRow" />
+                <DataGridTextColumn Header="Entro il" Binding="{Binding Due}" Width="115" x:DataType="local:TodoRow" />
+                <DataGridTextColumn Header="Descrizione" Binding="{Binding Description}" Width="*" x:DataType="local:TodoRow" />
+              </DataGrid.Columns>
+            </DataGrid>
+
+            <Grid Grid.Row="2" ColumnDefinitions="Auto,*" Margin="0,12,0,0">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <Button Classes="accent" Content="Consuntiva…" Command="{Binding LogCommand}" />
+                <Button Content="Modifica" Command="{Binding EditCommand}" />
+                <Button Content="{Binding CompleteText}" Command="{Binding ToggleCompletedCommand}" MinWidth="100" />
+                <Button Content="Elimina" Command="{Binding DeleteCommand}" />
+              </StackPanel>
+              <TextBlock Grid.Column="1" Text="{Binding Summary}" FontWeight="SemiBold"
+                         HorizontalAlignment="Right" VerticalAlignment="Center" />
+            </Grid>
+          </Grid>
+        </Border>
+      </Grid>
+    </TabItem>
+
+    <TabItem Header="Consuntiva ore">
+      <Grid RowDefinitions="Auto,Auto,*" Margin="0,6,0,0" DataContext="{Binding Entry}" x:DataType="local:EntryViewModel">
+
+        <!-- Giorno -->
+        <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,0,0,10">
+          <Button Content="◀" Command="{Binding PreviousDayCommand}" ToolTip.Tip="Giorno precedente" />
+          <CalendarDatePicker SelectedDate="{Binding Day}" Width="170" />
+          <Button Content="▶" Command="{Binding NextDayCommand}" ToolTip.Tip="Giorno successivo" />
+          <Button Content="Oggi" Command="{Binding TodayCommand}" />
+        </StackPanel>
+
+        <!-- Attività -->
+        <Border Classes="card" Grid.Row="1" Margin="0,0,0,10">
+          <StackPanel>
+            <TextBlock Classes="title" Text="Attività" />
+            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto" RowSpacing="8">
+              <Label Classes="field" Grid.Row="0" Content="Ore" />
+              <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Spacing="10">
+                <NumericUpDown x:Name="HoursBox" Value="{Binding Hours}" Minimum="0" Maximum="24" Increment="0.5"
+                               FormatString="0.##" Width="130" />
+                <TextBlock Classes="hint" Text="es. 1,5 = un'ora e mezza" />
+              </StackPanel>
+
+              <Label Classes="field" Grid.Row="1" Content="Cliente" />
+              <AutoCompleteBox Grid.Row="1" Grid.Column="1" Text="{Binding Client}" ItemsSource="{Binding Clients}"
+                               FilterMode="StartsWithCaseSensitive" MinimumPrefixLength="0"
+                               PlaceholderText="Scegli o scrivi un cliente" />
+
+              <Label Classes="field" Grid.Row="2" Content="Nota" VerticalAlignment="Top" Margin="0,6,12,0" />
+              <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Note}" AcceptsReturn="True"
+                       TextWrapping="Wrap" Height="64" PlaceholderText="Cosa hai fatto" />
+            </Grid>
+
+            <Grid ColumnDefinitions="*,Auto" Margin="0,12,0,0">
+              <TextBlock Text="{Binding Message}" TextWrapping="Wrap" VerticalAlignment="Center" FontSize="12"
+                         Classes.error="{Binding MessageIsError}" Classes.hint="{Binding !MessageIsError}"
+                         IsVisible="{Binding Message, Converter={x:Static ObjectConverters.IsNotNull}}" />
+              <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                <Button Content="Non ricordarmelo oggi" Command="{Binding SkipTodayCommand}" />
+                <Button Content="Annulla modifica" Command="{Binding ResetFormCommand}" IsVisible="{Binding IsEditing}" />
+                <Button Classes="accent" Content="{Binding SaveText}" Command="{Binding SaveCommand}" IsDefault="True" MinWidth="110" />
+              </StackPanel>
+            </Grid>
+          </StackPanel>
+        </Border>
+
+        <!-- Ore del giorno -->
+        <Border Classes="card" Grid.Row="2">
+          <Grid RowDefinitions="Auto,*,Auto">
+            <TextBlock Classes="title" Text="Ore registrate nel giorno" />
+            <DataGrid x:Name="EntryGrid" Grid.Row="1" ItemsSource="{Binding Rows}" SelectedItem="{Binding Selected}"
+                      SelectionMode="Single" IsReadOnly="True" CanUserSortColumns="False"
+                      CanUserReorderColumns="False" GridLinesVisibility="Horizontal"
+                      HeadersVisibility="Column" BorderThickness="0">
+              <DataGrid.Columns>
+                <DataGridTextColumn Header="Ore" Binding="{Binding Hours}" Width="70" x:DataType="local:EntryRow" />
+                <DataGridTextColumn Header="Cliente" Binding="{Binding Client}" Width="180" x:DataType="local:EntryRow" />
+                <DataGridTextColumn Header="Nota" Binding="{Binding Note}" Width="*" x:DataType="local:EntryRow" />
+              </DataGrid.Columns>
+            </DataGrid>
+
+            <Grid Grid.Row="2" ColumnDefinitions="Auto,*" Margin="0,12,0,0">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <Button Content="Modifica" Command="{Binding EditCommand}" />
+                <Button Content="Elimina" Command="{Binding DeleteCommand}" />
+              </StackPanel>
+              <TextBlock Grid.Column="1" Text="{Binding Total}" Foreground="{Binding TotalBrush}" FontWeight="Bold"
+                         HorizontalAlignment="Right" VerticalAlignment="Center" />
+            </Grid>
+          </Grid>
+        </Border>
+      </Grid>
+    </TabItem>
+  </TabControl>
+</Window>
