@@ -29,4 +29,15 @@ jobs:
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create $env:GITHUB_REF_NAME (Get-ChildItem dist/*.exe).FullName --generate-notes
+        # Se il tag è stato spostato la release esiste già: si sostituisce solo il setup.
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $false
+          $tag = $env:GITHUB_REF_NAME
+          $setup = (Get-ChildItem dist/*.exe).FullName
+          gh release view $tag *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload $tag $setup --clobber
+          } else {
+            gh release create $tag $setup --generate-notes
+          }
+          if ($LASTEXITCODE -ne 0) { throw "Pubblicazione della release non riuscita" }
