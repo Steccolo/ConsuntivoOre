@@ -185,6 +185,21 @@ provate solo con un server finto nei test. In particolare: attributi di lavoro o
 "Account") — se configurati l'invio fallisce con il messaggio di Tempo; istanze Tempo con dati in UE (indirizzo
 API modificabile nelle impostazioni); limite di 30 risultati nella ricerca.
 
+**Rilascio** (07/11/2026): commit `110eef6`, tag `v1.5.0`; CI riuscita su tag e `main`, release
+https://github.com/Steccolo/ConsuntivoOre/releases/tag/v1.5.0 con `ConsuntivoOre-Setup-1.5.0.exe` (~51 MB).
+
+**Ambiente Windows dell'utente** (emerso in questa sessione)
+
+- **Inno Setup non installato, per scelta**: l'utente non vuole "sporcare" la macchina; lo installerà se servirà.
+  `build.ps1` quindi si ferma: in locale si genera solo l'exe con il `dotnet publish` manuale (vedi `CLAUDE.md`)
+  e l'installer lo crea la CI al tag. Inno Setup non si installa da Visual Studio (è un programma a parte:
+  `winget install JRSoftware.InnoSetup`).
+- **`git` non è nel PATH**: si usa quello incluso in Visual Studio Community
+  (`C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\CommonExtensions\Microsoft\TeamFoundation\Team Explorer\Git\cmd\git.exe`);
+  c'è anche quello di GitHub Desktop.
+- **`gh` non è installato**: la CI e la release si controllano con l'API pubblica di GitHub
+  (`Invoke-RestMethod https://api.github.com/repos/Steccolo/ConsuntivoOre/actions/runs` e `.../releases/tags/<tag>`).
+
 ---
 
 ## Da verificare / idee aperte

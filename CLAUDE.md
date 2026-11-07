@@ -123,5 +123,10 @@ Lo `Scheduler` è puro (nessun effetto collaterale): ogni nuova regola dei prome
 
 - `dotnet run -f net10.0-windows10.0.17763.0` usa i **dati reali** in `%APPDATA%\ConsuntivoOre`: fare una copia
   della cartella prima di esperimenti rischiosi. In Debug l'avvio automatico non tocca il registro.
+- Sul PC dell'utente **Inno Setup non è installato (per scelta)**: `build.ps1` fallisce, quindi si genera solo l'exe
+  con il `dotnet publish` manuale; l'installer lo produce la CI al tag.
+- **`git` non è nel PATH**: usare `& "C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\CommonExtensions\Microsoft\TeamFoundation\Team Explorer\Git\cmd\git.exe"`.
+  **`gh` non c'è**: CI e release si seguono con `Invoke-RestMethod` sull'API pubblica di GitHub
+  (`/repos/Steccolo/ConsuntivoOre/actions/runs`, `/releases/tags/vX.Y.Z`, con un header `User-Agent`).
 - Qui si possono verificare davvero notifiche toast, icona nell'area di notifica e clic: sono le parti che da Linux
   sono state solo compilate (vedi "Da verificare" in `docs/STORIA.md`).
