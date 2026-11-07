@@ -21,6 +21,7 @@ internal static class Screenshots
 
         Directory.CreateDirectory(outputDirectory);
         string data = Directory.CreateTempSubdirectory("consuntivo-screenshot").FullName;
+        Log.FilePath = Path.Combine(data, "errori.log");
         try
         {
             var store = new DataStore(data);

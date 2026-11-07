@@ -5,7 +5,11 @@ public static class Log
     private const long MaxBytes = 1024 * 1024;
     private static readonly object Gate = new();
 
-    public static string FilePath { get; } = Path.Combine(DataStore.DefaultDirectory, "errori.log");
+    /// <summary>
+    /// Di norma nella cartella dati reale; test e <c>--screenshot</c> la spostano in una cartella temporanea,
+    /// così i loro errori finti non finiscono nel log dell'utente.
+    /// </summary>
+    public static string FilePath { get; set; } = Path.Combine(DataStore.DefaultDirectory, "errori.log");
 
     public static void Error(Exception? ex)
     {
@@ -14,7 +18,7 @@ public static class Log
         {
             lock (Gate)
             {
-                Directory.CreateDirectory(DataStore.DefaultDirectory);
+                Directory.CreateDirectory(Path.GetDirectoryName(FilePath)!);
                 if (File.Exists(FilePath) && new FileInfo(FilePath).Length > MaxBytes)
                     File.Move(FilePath, FilePath + ".1", overwrite: true);
                 File.AppendAllText(FilePath,
