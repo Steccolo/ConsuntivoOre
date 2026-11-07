@@ -1,12 +1,13 @@
 namespace ConsuntivoOre.ViewModels;
 
 /// <summary>Le due schede della finestra principale.</summary>
-public sealed class MainViewModel(DataStore store)
+public sealed class MainViewModel(DataStore store, JiraService? jira = null)
 {
     public DataStore Store { get; } = store;
+    public JiraService? Jira { get; } = jira;
 
     public TodoViewModel Todo { get; } = new(store);
-    public EntryViewModel Entry { get; } = new(store);
+    public EntryViewModel Entry { get; } = new(store, jira);
 
     public void Detach()
     {

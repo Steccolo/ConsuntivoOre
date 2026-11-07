@@ -42,6 +42,7 @@
           <DataGrid.Columns>
             <DataGridTextColumn Header="Cliente" Binding="{Binding Client}" Width="200" x:DataType="local:ReportRow" />
             <DataGridTextColumn Header="Ore" Binding="{Binding Hours}" Width="80" x:DataType="local:ReportRow" />
+            <DataGridTextColumn Header="Jira" Binding="{Binding Jira}" Width="150" x:DataType="local:ReportRow" />
             <DataGridTextColumn Header="Nota" Binding="{Binding Note}" Width="*" x:DataType="local:ReportRow" />
           </DataGrid.Columns>
         </DataGrid>
@@ -68,6 +69,9 @@
     <Grid Grid.Row="3" ColumnDefinitions="*,Auto">
       <TextBlock Text="{Binding Total}" FontWeight="Bold" VerticalAlignment="Center" />
       <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+        <Button Classes="accent" Content="{Binding SendText}" Command="{Binding SendToTempoCommand}"
+                IsVisible="{Binding JiraEnabled}"
+                ToolTip.Tip="Invia a Tempo le voci della settimana collegate a una issue e non ancora inviate o modificate" />
         <Button Content="Copia testo" Command="{Binding CopyTextCommand}" />
         <Button Content="Esporta CSV…" Command="{Binding ExportCsvCommand}" />
         <Button Content="Chiudi" x:Name="CloseButton" IsCancel="True" />

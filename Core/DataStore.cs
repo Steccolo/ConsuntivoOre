@@ -96,14 +96,25 @@ public sealed class DataStore
         CommitEntries(undo: () => _entries.Remove(entry));
     }
 
-    public void Update(Guid id, decimal hours, string client, string note)
+    public void Update(Guid id, decimal hours, string client, string note) =>
+        Update(id, hours, client, note, Find(id)?.Jira);
+
+    /// <summary>Modifica la voce; il collegamento a Tempo resta, così si vede che va aggiornata.</summary>
+    public void Update(Guid id, decimal hours, string client, string note, JiraIssueRef? jira)
     {
         var entry = Find(id) ?? throw new InvalidOperationException("Voce non trovata.");
-        var (oldHours, oldClient, oldNote) = (entry.Hours, entry.Client, entry.Note);
-        entry.Hours = hours;
-        entry.Client = client;
-        entry.Note = note;
-        CommitEntries(undo: () => (entry.Hours, entry.Client, entry.Note) = (oldHours, oldClient, oldNote));
+        var old = (entry.Hours, entry.Client, entry.Note, entry.Jira);
+        (entry.Hours, entry.Client, entry.Note, entry.Jira) = (hours, client, note, jira);
+        CommitEntries(undo: () => (entry.Hours, entry.Client, entry.Note, entry.Jira) = old);
+    }
+
+    /// <summary>Registra l'esito di un invio a Tempo (null = la voce non c'è più su Tempo).</summary>
+    public void SetTempoSync(Guid id, TempoSync? sync)
+    {
+        var entry = Find(id) ?? throw new InvalidOperationException("Voce non trovata.");
+        var old = entry.Tempo;
+        entry.Tempo = sync;
+        CommitEntries(undo: () => entry.Tempo = old);
     }
 
     public void Delete(Guid id)
@@ -282,6 +293,14 @@ public sealed class DataStore
         {
             e.Client ??= "";
             e.Note ??= "";
+            if (e.Jira is { } j)
+            {
+                j.Key ??= "";
+                j.Summary ??= "";
+                j.ProjectName ??= "";
+                if (j.Id <= 0 || j.Key.Length == 0) e.Jira = null;
+            }
+            if (e.Tempo is { } t) t.Note ??= "";
         }
         return entries;
     }

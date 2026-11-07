@@ -7,7 +7,9 @@
         WindowStartupLocation="CenterScreen"
         Background="#F3F4F6">
 
-  <StackPanel Margin="12" Spacing="10" Width="700">
+  <StackPanel Margin="12" Spacing="10" Width="724">
+  <ScrollViewer x:Name="Scroll" MaxHeight="640" HorizontalScrollBarVisibility="Disabled">
+  <StackPanel Spacing="10" Width="700" HorizontalAlignment="Left">
 
     <Border Classes="card">
       <StackPanel Spacing="8">
@@ -60,6 +62,47 @@
         </StackPanel>
       </StackPanel>
     </Border>
+
+    <Border Classes="card">
+      <StackPanel Spacing="8">
+        <TextBlock Classes="title" Text="Jira e Tempo" />
+        <CheckBox x:Name="JiraEnabled" Content="Registra le ore su Jira con Tempo" />
+        <Grid x:Name="JiraPanel" ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="8">
+          <Label Classes="field" Content="Indirizzo Jira" />
+          <TextBox x:Name="JiraSite" Grid.Column="1" PlaceholderText="https://azienda.atlassian.net" />
+
+          <Label Classes="field" Grid.Row="1" Content="Email" />
+          <TextBox x:Name="JiraEmail" Grid.Row="1" Grid.Column="1" PlaceholderText="l'email con cui accedi a Jira" />
+
+          <Label Classes="field" Grid.Row="2" Content="Token API Jira" />
+          <Grid Grid.Row="2" Grid.Column="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+            <TextBox x:Name="JiraToken" PasswordChar="•" PlaceholderText="da id.atlassian.com → Sicurezza → Token API" />
+            <Button x:Name="OpenJiraTokenPage" Grid.Column="1" Content="Crea token…" />
+          </Grid>
+
+          <Label Classes="field" Grid.Row="3" Content="Token Tempo" />
+          <TextBox x:Name="TempoToken" Grid.Row="3" Grid.Column="1" PasswordChar="•"
+                   PlaceholderText="in Tempo: Impostazioni → Integrazione API → Nuovo token" />
+
+          <Label Classes="field" Grid.Row="4" Content="Prima voce alle" />
+          <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal" Spacing="10">
+            <TimePicker x:Name="JiraDayStart" ClockIdentifier="24HourClock" MinuteIncrement="15" />
+            <TextBlock Classes="hint" Text="su Tempo le voci del giorno partono da qui, in fila" />
+          </StackPanel>
+
+          <Label Classes="field" Grid.Row="5" Content="API Tempo" />
+          <TextBox x:Name="TempoUrl" Grid.Row="5" Grid.Column="1"
+                   ToolTip.Tip="Da cambiare solo se Tempo usa i data center europei o americani (es. https://api.eu.tempo.io/4)" />
+        </Grid>
+        <StackPanel Orientation="Horizontal" Spacing="10">
+          <Button x:Name="TestJira" Content="Prova connessione" />
+          <TextBlock Classes="hint" Text="I token restano su questo PC, cifrati per il tuo utente Windows." />
+        </StackPanel>
+        <SelectableTextBlock x:Name="JiraTestResult" TextWrapping="Wrap" FontSize="12" IsVisible="False" />
+      </StackPanel>
+    </Border>
+  </StackPanel>
+  </ScrollViewer>
 
     <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
       <Button x:Name="CancelButton" Content="Annulla" IsCancel="True" />

@@ -15,6 +15,7 @@ internal sealed class AppController
 
     private readonly IClassicDesktopStyleApplicationLifetime _desktop;
     private readonly DataStore _store;
+    private readonly JiraService _jira;
     private readonly TrayIcon _tray;
     private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromSeconds(5) };
 
@@ -26,6 +27,7 @@ internal sealed class AppController
     {
         _desktop = desktop;
         _store = store;
+        _jira = new JiraService(store, Secrets.For(store));
 
         var menu = new NativeMenu();
         AddItem(menu, "Consuntiva ore", () => ShowEntry());
@@ -113,7 +115,7 @@ internal sealed class AppController
 
     private void CreateMain(MainTab tab)
     {
-        var vm = new MainViewModel(_store);
+        var vm = new MainViewModel(_store, _jira);
         vm.Entry.SkipRequested = () => SkipReminder(Today);
         _main = new MainWindow(vm);
         _main.ShowTab(tab);
@@ -128,7 +130,7 @@ internal sealed class AppController
     {
         if (_report is null)
         {
-            _report = new ReportWindow(new ReportViewModel(_store, week ?? Today));
+            _report = new ReportWindow(new ReportViewModel(_store, week ?? Today, _jira));
             _report.Closed += (_, _) => _report = null;
         }
         else if (week is { } w)
@@ -142,7 +144,7 @@ internal sealed class AppController
     {
         if (_settings is null)
         {
-            _settings = new SettingsWindow(_store, () => Notify("test", "Consuntivo Ore",
+            _settings = new SettingsWindow(_store, _jira, () => Notify("test", "Consuntivo Ore",
                 "Le notifiche funzionano correttamente.", new ToastCommand(ToastAction.Entry), () => ShowEntry(),
                 ("Apri", new ToastCommand(ToastAction.Entry))));
             _settings.Saved += OnEntriesChanged;
@@ -177,6 +179,7 @@ internal sealed class AppController
         foreach (var window in new Window?[] { _main, _report, _settings }) window?.Close();
         _tray.IsVisible = false;
         _tray.Dispose();
+        _jira.Dispose();
         _desktop.Shutdown();
     }
 

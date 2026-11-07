@@ -55,7 +55,8 @@ App.axaml(.cs)      Tema Fluent (chiaro), stili comuni (card, hint, error, DataG
 AppController.cs    Icona nell'area di notifica, timer (20 s), promemoria/report, notifiche, apertura finestre
 Screenshots.cs      Modalità --screenshot (Avalonia.Headless)
 Core/               Libreria senza UI: modelli, DataStore (JSON), Scheduler, ReportBuilder, Fmt, Log
-Platform/           Toast (Windows: toolkit UWP; Linux: notify-send), Autostart, SingleInstance
+Core/Jira/          JiraClient (Jira Cloud REST v3 + Tempo API v4), JiraService (invio/sync), CredentialStore
+Platform/           Toast (Windows: toolkit UWP; Linux: notify-send), Autostart, SingleInstance, Secrets (DPAPI)
 ViewModels/         MVVM con CommunityToolkit.Mvvm: Todo, Entry (consuntiva), Report, Main
 Views/              Finestre XAML: MainWindow (schede Todo/Consuntiva), ReportWindow, SettingsWindow, dialoghi
 tests/              xUnit su Core
@@ -76,6 +77,18 @@ Lo `Scheduler` è puro (nessun effetto collaterale): ogni nuova regola dei prome
 - Salvataggi atomici (`.tmp` + move) con annullamento in memoria se falliscono; file illeggibili messi da parte
   come `.corrotto-<data>`, mai sovrascritti. Rispettare questo schema per ogni nuovo file.
 - Valori letti da file modificabili a mano passano da `AppSettings.Normalize()`.
+- `jira.dat`: token di Jira e Tempo cifrati con DPAPI (utente corrente). Se non si decifra (altro PC/utente)
+  si considera vuoto: i token si rigenerano, non serve metterlo da parte. Mai token in `settings.json`.
+
+## Jira e Tempo
+
+- Jira **Cloud** (email + token API, Basic) per utente, progetti e ricerca; **Tempo** (token Bearer, `api.tempo.io/4`)
+  per i worklog. Tempo vuole l'**id numerico** della issue e l'`accountId` dell'autore, non la chiave.
+- "Progetti in cui posso consuntivare" = `POST /rest/api/3/permissions/project` con `WORK_ON_ISSUES`;
+  la ricerca usa `POST /rest/api/3/search/jql` (il vecchio `/search` è dismesso).
+- Stato della voce calcolato da `TimeEntry.Jira` + `TimeEntry.Tempo` (copia dei dati inviati): niente flag da tenere
+  allineati. Ogni invio passa da `JiraService.SyncAsync` (lucchetto contro doppi invii); i test usano un
+  `HttpMessageHandler` finto (`JiraTests`), nessuna chiamata reale.
 
 ## Insidie note (già incontrate)
 

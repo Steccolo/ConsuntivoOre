@@ -15,7 +15,8 @@ public sealed class ReportRow
     private static readonly IBrush Text = new SolidColorBrush(Color.FromRgb(31, 41, 55));
     private static readonly IBrush Gray = new SolidColorBrush(Color.FromRgb(107, 114, 128));
 
-    private ReportRow(bool isHeader, string client, string hours, string note, string? copyHours, string? copyNote)
+    private ReportRow(bool isHeader, string client, string hours, string note, string? copyHours, string? copyNote,
+        string jira = "", string? copyJira = null)
     {
         IsHeader = isHeader;
         Client = client;
@@ -23,18 +24,23 @@ public sealed class ReportRow
         Note = note;
         CopyHours = copyHours;
         CopyNote = copyNote;
+        Jira = jira;
+        CopyJira = copyJira;
     }
 
     public static ReportRow Header(DateOnly day, decimal hours, bool empty) =>
         new(true, Fmt.DayLong(day), $"{Fmt.Hours(hours)} h", empty ? "nessuna attività" : "", null, null);
 
     public static ReportRow Item(TimeEntry e) =>
-        new(false, e.Client, Fmt.Hours(e.Hours), e.Note.ReplaceLineEndings(" ").Trim(), Fmt.Duration(e.Hours), e.Note);
+        new(false, e.Client, Fmt.Hours(e.Hours), e.Note.ReplaceLineEndings(" ").Trim(), Fmt.Duration(e.Hours), e.Note,
+            JiraLabel.For(e), e.Jira?.Key);
 
     public bool IsHeader { get; }
     public string Client { get; }
     public string Hours { get; }
+    public string Jira { get; }
     public string Note { get; }
+    private string? CopyJira { get; }
     private string? CopyHours { get; }
     private string? CopyNote { get; }
 
@@ -42,11 +48,12 @@ public sealed class ReportRow
     public IBrush Foreground => IsHeader && Note.Length > 0 ? Gray : Text;
     public FontWeight Weight => IsHeader ? FontWeight.Bold : FontWeight.Normal;
 
-    /// <summary>Testo da copiare per la colonna indicata (0 cliente, 1 ore, 2 nota); null sulle intestazioni.</summary>
+    /// <summary>Testo da copiare per la colonna indicata (0 cliente, 1 ore, 2 issue Jira, 3 nota); null sulle intestazioni.</summary>
     public string? CopyText(int column) => IsHeader ? null : column switch
     {
         0 => Client,
         1 => CopyHours,
+        2 => CopyJira,
         _ => CopyNote,
     };
 }
@@ -58,15 +65,52 @@ public sealed partial class ReportViewModel : ObservableObject
     public const string CopyHint = "Clicca un campo e premi Ctrl+C (o doppio clic) per copiarlo.";
 
     private readonly DataStore _store;
+    private readonly JiraService? _jira;
     private IReadOnlyList<TimeEntry> _entries = [];
 
-    public ReportViewModel(DataStore store, DateOnly anyDayOfWeek)
+    public ReportViewModel(DataStore store, DateOnly anyDayOfWeek, JiraService? jira = null)
     {
         _store = store;
+        _jira = jira;
         WeekStart = Fmt.WeekStart(anyDayOfWeek);
     }
 
     public DataStore Store => _store;
+
+    // --- Jira
+
+    [ObservableProperty] public partial bool JiraEnabled { get; set; }
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(SendToTempoCommand))]
+    public partial int PendingCount { get; set; }
+
+    [ObservableProperty] public partial string SendText { get; set; } = "Invia a Tempo";
+
+    private bool CanSend => JiraEnabled && PendingCount > 0;
+
+    /// <summary>Invia a Tempo tutte le voci della settimana collegate a Jira e non ancora inviate (o modificate).</summary>
+    [RelayCommand(CanExecute = nameof(CanSend))]
+    private async Task SendToTempo()
+    {
+        if (_jira is null) return;
+        Status = "Invio a Tempo in corso…";
+        SyncResult result;
+        try
+        {
+            result = await _jira.SyncAsync(_entries.Where(e => e.NeedsTempoSync).Select(e => e.Id));
+        }
+        catch (JiraException ex)
+        {
+            Status = CopyHint;
+            if (ShowWarning is not null) await ShowWarning($"Invio a Tempo non riuscito:\n{ex.Message}");
+            return;
+        }
+        Refresh();
+        Status = result.Summary();
+        if (!result.Ok && ShowWarning is not null)
+            await ShowWarning($"{result.Summary()}\n\n{string.Join("\n\n", result.Errors)}");
+    }
 
     public ObservableCollection<ReportRow> Details { get; } = [];
     public ObservableCollection<ClientRow> ByClient { get; } = [];
@@ -114,6 +158,11 @@ public sealed partial class ReportViewModel : ObservableObject
         Total = expected > 0
             ? $"Totale settimana: {Fmt.Hours(total)} h su {Fmt.Hours(expected)} h previste"
             : $"Totale settimana: {Fmt.Hours(total)} h";
+
+        JiraEnabled = _jira?.IsEnabled == true;
+        PendingCount = _entries.Count(e => e.NeedsTempoSync);
+        SendText = PendingCount > 0 ? $"Invia a Tempo ({PendingCount})" : "Invia a Tempo";
+        SendToTempoCommand.NotifyCanExecuteChanged();
     }
 
     /// <summary>Copia un campo del dettaglio negli appunti e lo conferma nella barra sotto la tabella.</summary>

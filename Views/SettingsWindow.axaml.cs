@@ -5,7 +5,10 @@ namespace ConsuntivoOre.Views;
 
 public partial class SettingsWindow : Window
 {
+    private const string JiraTokenPage = "https://id.atlassian.com/manage-profile/security/api-tokens";
+
     private readonly DataStore _store;
+    private readonly JiraService? _jira;
     private readonly CheckBox[] _reminderDays;
     private readonly CheckBox[] _workDays;
 
@@ -13,12 +16,17 @@ public partial class SettingsWindow : Window
     public event Action? Saved;
 
     // Richiesto dal caricatore XAML in fase di progettazione.
-    public SettingsWindow() : this(new DataStore(Path.GetTempPath()), () => { }) { }
+    public SettingsWindow() : this(new DataStore(Path.GetTempPath()), null, () => { }) { }
 
-    public SettingsWindow(DataStore store, Action sendTestNotification)
+    public SettingsWindow(DataStore store, JiraService? jira, Action sendTestNotification)
     {
         InitializeComponent();
         _store = store;
+        _jira = jira;
+
+        JiraEnabled.IsCheckedChanged += (_, _) => UpdateEnabled();
+        OpenJiraTokenPage.Click += (_, _) => OpenUrl(JiraTokenPage);
+        TestJira.Click += async (_, _) => await TestJiraConnection();
 
         _reminderDays = DayBoxes(ReminderDays);
         _workDays = DayBoxes(WorkDays);
@@ -57,7 +65,69 @@ public partial class SettingsWindow : Window
         ReportTime.SelectedTime = s.ReportTime.ToTimeSpan();
         OpenWindow.IsChecked = s.OpenWindowWithNotification;
         AutostartBox.IsChecked = SafeAutostartEnabled();
+
+        var j = s.Jira;
+        JiraEnabled.IsChecked = j.Enabled;
+        JiraSite.Text = j.SiteUrl;
+        JiraEmail.Text = j.Email;
+        TempoUrl.Text = j.TempoApiUrl;
+        JiraDayStart.SelectedTime = j.DayStart.ToTimeSpan();
+        JiraToken.Text = _jira?.Credentials.JiraToken ?? "";
+        TempoToken.Text = _jira?.Credentials.TempoToken ?? "";
         UpdateEnabled();
+    }
+
+    /// <summary>Impostazioni Jira come sono nel form (non ancora salvate).</summary>
+    private (JiraSettings Settings, JiraCredentials Credentials) JiraFromForm()
+    {
+        var current = _store.Settings.Jira;
+        var settings = new JiraSettings
+        {
+            Enabled = JiraEnabled.IsChecked == true,
+            SiteUrl = JiraSite.Text ?? "",
+            Email = JiraEmail.Text ?? "",
+            TempoApiUrl = TempoUrl.Text ?? "",
+            SendImmediately = current.SendImmediately,
+            DayStart = ToTime(JiraDayStart.SelectedTime, current.DayStart),
+        };
+        settings.Normalize();
+        var creds = new JiraCredentials { JiraToken = (JiraToken.Text ?? "").Trim(), TempoToken = (TempoToken.Text ?? "").Trim() };
+        return (settings, creds);
+    }
+
+    private async Task TestJiraConnection()
+    {
+        var (settings, creds) = JiraFromForm();
+        TestJira.IsEnabled = false;
+        JiraTestResult.IsVisible = true;
+        JiraTestResult.Foreground = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.FromRgb(107, 114, 128));
+        JiraTestResult.Text = "Verifica in corso…";
+        try
+        {
+            JiraTestResult.Text = await JiraService.TestAsync(settings, creds);
+            JiraTestResult.Foreground = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.FromRgb(21, 128, 61));
+        }
+        catch (JiraException ex)
+        {
+            JiraTestResult.Text = ex.Message;
+            JiraTestResult.Foreground = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.FromRgb(220, 38, 38));
+        }
+        finally
+        {
+            TestJira.IsEnabled = true;
+        }
+    }
+
+    private static void OpenUrl(string url)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true })?.Dispose();
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex);
+        }
     }
 
     private async Task Save()
@@ -69,7 +139,15 @@ public partial class SettingsWindow : Window
             return;
         }
 
+        var (jiraSettings, jiraCreds) = JiraFromForm();
+        if (jiraSettings.Enabled && (jiraSettings.SiteUrl.Length == 0 || jiraSettings.Email.Length == 0 || jiraCreds.JiraToken.Length == 0))
+        {
+            await MessageDialog.Show(this, "Per usare Jira indica indirizzo, email e token API (il token Tempo serve per inviare le ore).");
+            return;
+        }
+
         var s = _store.Settings;
+        s.Jira = jiraSettings;
         s.ReminderEnabled = ReminderEnabled.IsChecked == true;
         s.ReminderTime = ToTime(ReminderTime.SelectedTime, s.ReminderTime);
         s.ReminderDays = days;
@@ -103,6 +181,24 @@ public partial class SettingsWindow : Window
             await MessageDialog.Show(this, $"Impossibile modificare l'avvio automatico:\n{ex.Message}");
         }
 
+        if (_jira is not null)
+        {
+            try
+            {
+                var old = _jira.Credentials;
+                if (old.JiraToken != jiraCreds.JiraToken || old.TempoToken != jiraCreds.TempoToken)
+                    _jira.SaveCredentials(jiraCreds);
+                else
+                    _jira.Reset();
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex);
+                _jira.Reset();
+                await MessageDialog.Show(this, $"Impossibile salvare i token di Jira e Tempo:\n{ex.Message}");
+            }
+        }
+
         Saved?.Invoke();
         Close();
     }
@@ -111,6 +207,7 @@ public partial class SettingsWindow : Window
     {
         ReminderPanel.IsEnabled = ReminderEnabled.IsChecked == true;
         ReportPanel.IsEnabled = ReportEnabled.IsChecked == true;
+        JiraPanel.IsEnabled = TestJira.IsEnabled = JiraEnabled.IsChecked == true;
     }
 
     private void OpenDataFolder()

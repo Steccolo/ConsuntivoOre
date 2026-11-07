@@ -10,6 +10,25 @@ public sealed class TimeEntry
     public DateTime CreatedAt { get; set; } = DateTime.Now;
     /// <summary>Todo da cui è stata consuntivata la voce, se c'è.</summary>
     public Guid? TodoId { get; set; }
+    /// <summary>Issue di Jira su cui registrare le ore (facoltativa).</summary>
+    public JiraIssueRef? Jira { get; set; }
+    /// <summary>Ultimo invio riuscito a Tempo, se c'è.</summary>
+    public TempoSync? Tempo { get; set; }
+
+    [System.Text.Json.Serialization.JsonIgnore]
+    public JiraStatus JiraStatus => (Jira, Tempo) switch
+    {
+        (null, null) => JiraStatus.None,
+        (not null, null) => JiraStatus.ToSend,
+        (null, not null) => JiraStatus.Changed,
+        ({ } j, { } t) => t.IssueId == j.Id && t.Date == Date && t.Hours == Hours && t.Note == Note
+            ? JiraStatus.Sent
+            : JiraStatus.Changed,
+    };
+
+    /// <summary>C'è qualcosa da inviare (o togliere) su Tempo.</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool NeedsTempoSync => JiraStatus is JiraStatus.ToSend or JiraStatus.Changed;
 }
 
 public sealed class TodoItem
@@ -54,9 +73,13 @@ public sealed class AppSettings
     /// <summary>Larghezze delle colonne scelte dall'utente, per tabella (l'ultima colonna riempie lo spazio e non c'è).</summary>
     public Dictionary<string, List<double>> ColumnWidths { get; set; } = [];
 
+    public JiraSettings Jira { get; set; } = new();
+
     /// <summary>Riporta entro limiti validi i valori arrivati da un file modificato a mano.</summary>
     public void Normalize()
     {
+        Jira ??= new JiraSettings();
+        Jira.Normalize();
         ColumnWidths = (ColumnWidths ?? [])
             .Where(kv => kv.Value is not null)
             .ToDictionary(kv => kv.Key, kv => kv.Value.Select(w => Math.Clamp(double.IsFinite(w) ? w : 0, 30, 2000)).ToList());

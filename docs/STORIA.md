@@ -153,7 +153,43 @@ Installata e confermata funzionante dall'utente.
 
 ---
 
+## 1.5.0 — Jira e Tempo (07/11/2026)
+
+Prima sessione sviluppata su **Windows**.
+
+**Richiesta**: collegarsi a Jira con il proprio utente e consuntivare le ore direttamente nei progetti in cui
+si ha il permesso di farlo.
+
+**Scelte dell'utente** (domande fatte prima di scrivere codice): Jira **Cloud**; le ore vanno su
+**Tempo Timesheets** (non il log work nativo); collegamento alla issue nel form con invio **subito o dopo dal
+report**; issue scelta con una **ricerca diretta** (non progetto → issue, non issue fissa per cliente).
+
+**Decisioni**
+
+- Due credenziali: email + token API di Jira (utente, progetti consentiti, ricerca) e token di Tempo (worklog).
+  Token in `jira.dat` cifrato con DPAPI, non in `settings.json`.
+- Progetti consentiti: permesso `WORK_ON_ISSUES`. Ricerca: chiave `ABC-123` (letta direttamente e scartata se
+  in un progetto non consentito), chiave di progetto, parole del titolo con `*`; vuota = issue recenti mie.
+- La voce ricorda la issue (`Jira`: id, chiave, titolo, progetto) e l'ultimo invio (`Tempo`: id del worklog e
+  dati inviati). Lo stato (da inviare / inviata / da aggiornare) si ricava confrontandoli. Campi solo aggiuntivi:
+  `SchemaVersion` invariata.
+- Modifica dopo l'invio → aggiornamento dello stesso worklog (se su Tempo non c'è più se ne crea uno nuovo);
+  issue tolta → worklog cancellato; eliminazione → si chiede se togliere anche da Tempo.
+- Su Tempo le voci del giorno vanno in fila dalle 9:00 (configurabile) nell'ordine di inserimento.
+- Descrizione vuota non accettata da Tempo → si usa il titolo della issue.
+- Il cliente resta obbligatorio; se vuoto, scegliendo la issue si propone il nome del progetto.
+- La issue resta nel form per la voce successiva, come il cliente.
+
+**Non verificato** (nessun Jira/Tempo reale disponibile durante lo sviluppo): tutte le chiamate di rete sono
+provate solo con un server finto nei test. In particolare: attributi di lavoro obbligatori in Tempo (es.
+"Account") — se configurati l'invio fallisce con il messaggio di Tempo; istanze Tempo con dati in UE (indirizzo
+API modificabile nelle impostazioni); limite di 30 risultati nella ricerca.
+
+---
+
 ## Da verificare / idee aperte
+
+- **Jira/Tempo con un account reale** (vedi 1.5.0). Idee: issue predefinita per todo, attributi di lavoro Tempo.
 
 - **CI con release già esistente**: correzione mai messa alla prova (vedi sopra).
 - **Linux**: notifiche `notify-send` con azioni e icona nell'area di notifica non provate su un desktop reale

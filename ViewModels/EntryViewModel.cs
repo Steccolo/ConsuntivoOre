@@ -4,12 +4,26 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 namespace ConsuntivoOre.ViewModels;
 
+/// <summary>Testo della colonna "Jira": chiave della issue e stato dell'invio a Tempo.</summary>
+public static class JiraLabel
+{
+    public static string For(TimeEntry e) => e.JiraStatus switch
+    {
+        JiraStatus.None => "",
+        JiraStatus.Sent => $"{e.Jira!.Key} ✓",
+        JiraStatus.ToSend => $"{e.Jira!.Key} · da inviare",
+        _ when e.Jira is null => "da togliere da Tempo",
+        _ => $"{e.Jira!.Key} · da aggiornare",
+    };
+}
+
 /// <summary>Una voce del giorno, già pronta da mostrare.</summary>
 public sealed class EntryRow(TimeEntry entry)
 {
     public TimeEntry Entry { get; } = entry;
     public string Hours => Fmt.Hours(Entry.Hours);
     public string Client => Entry.Client;
+    public string Jira => JiraLabel.For(Entry);
     public string Note => Entry.Note.ReplaceLineEndings(" ").Trim();
 }
 
@@ -21,10 +35,12 @@ public sealed partial class EntryViewModel : ObservableObject
     private static readonly IBrush Warn = new SolidColorBrush(Color.FromRgb(180, 83, 9));
 
     private readonly DataStore _store;
+    private readonly JiraService? _jira;
 
-    public EntryViewModel(DataStore store)
+    public EntryViewModel(DataStore store, JiraService? jira = null)
     {
         _store = store;
+        _jira = jira;
         _store.EntriesChanged += Refresh;
         Refresh();
     }
@@ -78,6 +94,92 @@ public sealed partial class EntryViewModel : ObservableObject
     [ObservableProperty] public partial string? Message { get; set; }
     [ObservableProperty] public partial bool MessageIsError { get; set; }
 
+    // --- Jira
+
+    /// <summary>Il collegamento è attivo nelle impostazioni: si mostrano le parti Jira.</summary>
+    [ObservableProperty] public partial bool JiraEnabled { get; set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IssueText), nameof(HasIssue), nameof(IssueWeight))]
+    public partial JiraIssueRef? Issue { get; set; }
+
+    public bool HasIssue => Issue is not null;
+    public FontWeight IssueWeight => HasIssue ? FontWeight.SemiBold : FontWeight.Normal;
+    public string IssueText => Issue?.Display ?? "nessuna (solo in locale)";
+
+    public bool SendImmediately
+    {
+        get => _store.Settings.Jira.SendImmediately;
+        set
+        {
+            if (_store.Settings.Jira.SendImmediately == value) return;
+            _store.Settings.Jira.SendImmediately = value;
+            OnPropertyChanged();
+            try
+            {
+                _store.SaveSettings();
+            }
+            catch (Exception ex) when (DataStore.IsFileError(ex))
+            {
+                Log.Error(ex); // resta valida fino alla chiusura dell'app
+            }
+        }
+    }
+
+    /// <summary>Impostato dalla finestra: apre la ricerca delle issue.</summary>
+    public Func<Task<JiraIssueRef?>>? AskIssue { get; set; }
+
+    /// <summary>Impostato dalla finestra: domanda con più risposte (indice del pulsante, -1 = chiusa).</summary>
+    public Func<string, string[], Task<int>>? AskChoice { get; set; }
+
+    [ObservableProperty] public partial bool IsSending { get; set; }
+
+    [RelayCommand]
+    private async Task ChooseIssue()
+    {
+        if (AskIssue is null || await AskIssue() is not { } issue) return;
+        Issue = issue;
+        // Il cliente è obbligatorio: se manca si propone il progetto Jira.
+        if (string.IsNullOrWhiteSpace(Client) && issue.ProjectName.Length > 0) Client = issue.ProjectName;
+    }
+
+    [RelayCommand] private void ClearIssue() => Issue = null;
+
+    private bool CanSendSelected => JiraEnabled && Selected?.Entry.NeedsTempoSync == true;
+
+    [RelayCommand(CanExecute = nameof(CanSendSelected))]
+    private async Task SendSelected()
+    {
+        if (Selected?.Entry is { } entry) await SendAsync(entry.Id, null);
+    }
+
+    /// <summary>Invia la voce a Tempo e lo dice nel messaggio sotto il form.</summary>
+    private async Task SendAsync(Guid id, string? savedPrefix)
+    {
+        if (_jira is null) return;
+        IsSending = true;
+        Message = (savedPrefix ?? "") + "Invio a Tempo in corso…";
+        MessageIsError = false;
+        try
+        {
+            var result = await _jira.SyncAsync([id]);
+            Message = result.Ok
+                ? (savedPrefix ?? "") + result.Summary()
+                : (savedPrefix ?? "") + "Invio a Tempo non riuscito: " + string.Join("\n", result.Errors) +
+                  "\nPuoi riprovare con «Invia a Tempo» o dal report.";
+            MessageIsError = !result.Ok;
+        }
+        catch (JiraException ex)
+        {
+            Message = (savedPrefix ?? "") + "Invio a Tempo non riuscito: " + ex.Message;
+            MessageIsError = true;
+        }
+        finally
+        {
+            IsSending = false;
+        }
+    }
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(SaveText), nameof(IsEditing))]
     public partial Guid? EditingId { get; set; }
@@ -92,7 +194,7 @@ public sealed partial class EntryViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasSelection))]
-    [NotifyCanExecuteChangedFor(nameof(EditCommand), nameof(DeleteCommand))]
+    [NotifyCanExecuteChangedFor(nameof(EditCommand), nameof(DeleteCommand), nameof(SendSelectedCommand))]
     public partial EntryRow? Selected { get; set; }
 
     public bool HasSelection => Selected is not null;
@@ -121,21 +223,38 @@ public sealed partial class EntryViewModel : ObservableObject
 
         Clients.Clear();
         foreach (var c in _store.Clients()) Clients.Add(c);
+
+        JiraEnabled = _jira?.IsEnabled == true;
+        OnPropertyChanged(nameof(SendImmediately));
+        SendSelectedCommand.NotifyCanExecuteChanged();
     }
 
-    [RelayCommand]
-    private void Save()
+    // Mentre una voce va a Tempo si può già inserire la successiva.
+    [RelayCommand(AllowConcurrentExecutions = true)]
+    private async Task Save()
     {
         decimal hours = Hours ?? 0;
         if (hours <= 0) { ShowError("Indica quante ore hai lavorato."); return; }
         string client = (Client ?? "").Trim();
         if (client.Length == 0) { ShowError("Indica il cliente."); return; }
         string note = Note.Trim();
+        // A Jira disattivato il collegamento già presente sulla voce non si tocca.
+        var issue = JiraEnabled ? Issue : EditingId is { } e ? _store.Find(e)?.Jira : null;
 
+        Guid savedId;
         try
         {
-            if (EditingId is { } id) _store.Update(id, hours, client, note);
-            else _store.Add(new TimeEntry { Date = SelectedDay, Hours = hours, Client = client, Note = note });
+            if (EditingId is { } id)
+            {
+                _store.Update(id, hours, client, note, issue);
+                savedId = id;
+            }
+            else
+            {
+                var entry = new TimeEntry { Date = SelectedDay, Hours = hours, Client = client, Note = note, Jira = issue };
+                _store.Add(entry);
+                savedId = entry.Id;
+            }
         }
         catch (Exception ex) when (DataStore.IsFileError(ex))
         {
@@ -143,12 +262,20 @@ public sealed partial class EntryViewModel : ObservableObject
             return;
         }
         ResetForm();
+
+        if (JiraEnabled && SendImmediately && _store.Find(savedId) is { NeedsTempoSync: true })
+            await SendAsync(savedId, "Salvata. ");
     }
 
     [RelayCommand]
     private void ResetForm()
     {
-        if (EditingId is not null) Client = "";
+        // Come il cliente, la issue resta per la voce successiva (spesso è la stessa), tranne dopo una modifica.
+        if (EditingId is not null)
+        {
+            Client = "";
+            Issue = null;
+        }
         EditingId = null;
         Hours = null;
         Note = "";
@@ -163,6 +290,7 @@ public sealed partial class EntryViewModel : ObservableObject
         Hours = entry.Hours;
         Client = entry.Client;
         Note = entry.Note;
+        Issue = entry.Jira;
         Message = null;
     }
 
@@ -170,7 +298,11 @@ public sealed partial class EntryViewModel : ObservableObject
     private async Task Delete()
     {
         if (Selected?.Entry is not { } entry) return;
-        if (AskConfirm is not null && !await AskConfirm("Eliminare la voce selezionata?")) return;
+        if (entry.Tempo is not null)
+        {
+            if (!await AskDeleteRemote(entry)) return;
+        }
+        else if (AskConfirm is not null && !await AskConfirm("Eliminare la voce selezionata?")) return;
         try
         {
             _store.Delete(entry.Id);
@@ -181,6 +313,37 @@ public sealed partial class EntryViewModel : ObservableObject
             return;
         }
         if (EditingId == entry.Id) ResetForm();
+    }
+
+    /// <summary>Voce già su Tempo: si sceglie se toglierla anche da lì. Falso = non eliminare.</summary>
+    private async Task<bool> AskDeleteRemote(TimeEntry entry)
+    {
+        if (AskChoice is null) return false;
+        if (_jira is not { IsEnabled: true })
+        {
+            return await AskChoice("La voce è registrata anche su Tempo, ma il collegamento a Jira è disattivato: " +
+                                   "verrà eliminata solo in locale.", ["Elimina in locale", "Annulla"]) == 0;
+        }
+
+        int choice = await AskChoice("La voce è registrata anche su Tempo. Vuoi eliminarla anche da lì?",
+            ["Elimina anche da Tempo", "Solo in locale", "Annulla"]);
+        if (choice == 1) return true;
+        if (choice != 0) return false;
+        try
+        {
+            IsSending = true;
+            await _jira.DeleteRemoteAsync(entry);
+            return true;
+        }
+        catch (JiraException ex)
+        {
+            ShowError($"Non eliminata: Tempo ha dato un errore. {ex.Message}");
+            return false;
+        }
+        finally
+        {
+            IsSending = false;
+        }
     }
 
     [RelayCommand]

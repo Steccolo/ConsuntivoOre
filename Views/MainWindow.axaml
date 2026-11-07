@@ -98,7 +98,7 @@
         <Border Classes="card" Grid.Row="1" Margin="0,0,0,10">
           <StackPanel>
             <TextBlock Classes="title" Text="Attività" />
-            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto" RowSpacing="8">
+            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="8">
               <Label Classes="field" Grid.Row="0" Content="Ore" />
               <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Spacing="10">
                 <NumericUpDown x:Name="HoursBox" Value="{Binding Hours}" Minimum="0" Maximum="24" Increment="0.5"
@@ -114,6 +114,19 @@
               <Label Classes="field" Grid.Row="2" Content="Nota" VerticalAlignment="Top" Margin="0,6,12,0" />
               <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Note}" AcceptsReturn="True"
                        TextWrapping="Wrap" Height="64" PlaceholderText="Cosa hai fatto" />
+
+              <Label Classes="field" Grid.Row="3" Content="Jira" IsVisible="{Binding JiraEnabled}" />
+              <Grid Grid.Row="3" Grid.Column="1" ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="8"
+                    IsVisible="{Binding JiraEnabled}">
+                <TextBlock Text="{Binding IssueText}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                           ToolTip.Tip="{Binding IssueText}"
+                           Classes.hint="{Binding !HasIssue}" FontWeight="{Binding IssueWeight}" />
+                <Button Grid.Column="1" Content="Scegli issue…" Command="{Binding ChooseIssueCommand}" />
+                <Button Grid.Column="2" Content="✕" Command="{Binding ClearIssueCommand}" IsVisible="{Binding HasIssue}"
+                        ToolTip.Tip="Togli il collegamento a Jira" />
+                <CheckBox Grid.Column="3" Content="Invia subito a Tempo" IsChecked="{Binding SendImmediately}"
+                          ToolTip.Tip="Se spento, le voci si inviano dopo con «Invia a Tempo» (qui sotto o nel report)" />
+              </Grid>
             </Grid>
 
             <Grid ColumnDefinitions="*,Auto" Margin="0,12,0,0">
@@ -140,6 +153,7 @@
               <DataGrid.Columns>
                 <DataGridTextColumn Header="Ore" Binding="{Binding Hours}" Width="70" x:DataType="local:EntryRow" />
                 <DataGridTextColumn Header="Cliente" Binding="{Binding Client}" Width="180" x:DataType="local:EntryRow" />
+                <DataGridTextColumn Header="Jira" Binding="{Binding Jira}" Width="150" x:DataType="local:EntryRow" />
                 <DataGridTextColumn Header="Nota" Binding="{Binding Note}" Width="*" x:DataType="local:EntryRow" />
               </DataGrid.Columns>
             </DataGrid>
@@ -148,6 +162,7 @@
               <StackPanel Orientation="Horizontal" Spacing="8">
                 <Button Content="Modifica" Command="{Binding EditCommand}" />
                 <Button Content="Elimina" Command="{Binding DeleteCommand}" />
+                <Button Content="Invia a Tempo" Command="{Binding SendSelectedCommand}" IsVisible="{Binding JiraEnabled}" />
               </StackPanel>
               <TextBlock Grid.Column="1" Text="{Binding Total}" Foreground="{Binding TotalBrush}" FontWeight="Bold"
                          HorizontalAlignment="Right" VerticalAlignment="Center" />

@@ -128,6 +128,38 @@ public static class ConfirmDialog
     }
 }
 
+/// <summary>Domanda con più risposte: restituisce l'indice del pulsante scelto, -1 se si chiude la finestra.</summary>
+public static class ChoiceDialog
+{
+    /// <param name="buttons">Il primo è quello evidenziato, l'ultimo risponde a Esc.</param>
+    public static async Task<int> Show(Window owner, string message, params string[] buttons)
+    {
+        var window = new Window
+        {
+            Title = "Consuntivo Ore",
+            Icon = AppAssets.Icon,
+            SizeToContent = SizeToContent.WidthAndHeight,
+            CanResize = false,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+        };
+        var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Right };
+        for (int i = 0; i < buttons.Length; i++)
+        {
+            int index = i;
+            var button = new Button { Content = buttons[i], MinWidth = 80, IsCancel = i == buttons.Length - 1 };
+            if (i == 0) button.Classes.Add("accent");
+            button.Click += (_, _) => window.Close(index);
+            row.Children.Add(button);
+        }
+        window.Content = new StackPanel
+        {
+            Margin = new Thickness(20), Spacing = 16,
+            Children = { new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap, MaxWidth = 420 }, row },
+        };
+        return await window.ShowDialog<int?>(owner) ?? -1;
+    }
+}
+
 /// <summary>Avviso con il solo pulsante OK; senza finestra proprietaria compare al centro dello schermo.</summary>
 public static class MessageDialog
 {

@@ -19,7 +19,10 @@ public static class ColumnLayout
 
         window.Closing += (_, _) =>
         {
-            var widths = grid.Columns.Select(c => Math.Round(c.ActualWidth)).ToList();
+            // Una colonna nascosta (es. Jira disattivato) ha larghezza 0: si conserva quella impostata.
+            var widths = grid.Columns
+                .Select(c => Math.Round(c.IsVisible || !c.Width.IsAbsolute ? c.ActualWidth : c.Width.Value))
+                .ToList();
             // Finestra mai disegnata (o colonne non ancora misurate): non c'è niente da ricordare.
             if (widths.Count == 0 || widths.Any(w => !double.IsFinite(w) || w <= 0)) return;
             if (store.Settings.ColumnWidths.TryGetValue(key, out var old) && old.SequenceEqual(widths)) return;

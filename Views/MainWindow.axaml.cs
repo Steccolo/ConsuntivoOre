@@ -30,6 +30,17 @@ public partial class MainWindow : Window
 
         var entry = vm.Entry;
         entry.AskConfirm = message => ConfirmDialog.Show(this, message);
+        entry.AskChoice = (message, buttons) => ChoiceDialog.Show(this, message, buttons);
+        if (vm.Jira is { } jira)
+            entry.AskIssue = () => new IssuePickerDialog(jira.SearchAsync).ShowDialog<JiraIssueRef?>(this);
+
+        // La colonna Jira si vede solo con il collegamento attivo.
+        var jiraColumn = EntryGrid.Columns[2];
+        jiraColumn.IsVisible = entry.JiraEnabled;
+        entry.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(EntryViewModel.JiraEnabled)) jiraColumn.IsVisible = entry.JiraEnabled;
+        };
         EntryGrid.DoubleTapped += (_, _) =>
         {
             entry.EditCommand.Execute(null);

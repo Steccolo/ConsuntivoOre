@@ -25,6 +25,14 @@ public partial class ReportWindow : Window
         vm.ShowWarning = message => MessageDialog.Show(this, message);
         vm.Refresh();
 
+        // La colonna Jira si vede solo con il collegamento attivo.
+        var jiraColumn = DetailsGrid.Columns[2];
+        jiraColumn.IsVisible = vm.JiraEnabled;
+        vm.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(ReportViewModel.JiraEnabled)) jiraColumn.IsVisible = vm.JiraEnabled;
+        };
+
         CloseButton.Click += (_, _) => Close();
         CopyMenu.Click += (_, _) => _ = CopyCurrentCell();
         DetailsGrid.DoubleTapped += (_, _) => _ = CopyCurrentCell();

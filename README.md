@@ -31,6 +31,17 @@ Si avvia insieme a Windows, apre la scheda **Todo** e resta nell'area di notific
   - Ogni campo del dettaglio (cliente, ore, nota) si seleziona da solo: `Ctrl+C`, doppio clic o clic destro → *Copia* lo copiano negli appunti, per esempio per incollarlo in Jira. Le ore si copiano nel formato di Jira (`1,5` → `1h 30m`).
   - Puoi copiarlo come testo, per esempio per incollarlo in una mail.
   - Puoi esportarlo in CSV, che si apre direttamente in Excel.
+- **Jira e Tempo** (Jira Cloud con Tempo Timesheets). Si attiva nelle impostazioni, sezione *Jira e Tempo*:
+  - indirizzo di Jira (es. `https://azienda.atlassian.net`) ed email con cui accedi;
+  - **token API di Jira**: si crea su [id.atlassian.com → Sicurezza → Token API](https://id.atlassian.com/manage-profile/security/api-tokens) (pulsante *Crea token…*);
+  - **token di Tempo**: in Jira apri Tempo → *Impostazioni* → *Integrazione API* → *Nuovo token*;
+  - *Prova connessione* verifica entrambi e dice in quanti progetti puoi registrare ore.
+
+  Nella scheda *Consuntiva ore* compare la riga **Jira**: con **Scegli issue…** cerchi la issue per chiave (`ABC-123`), per parole del titolo o per chiave del progetto; senza scrivere nulla vedi le issue assegnate a te o su cui hai lavorato di recente. Sono proposte **solo le issue dei progetti in cui hai il permesso di registrare lavoro**.
+
+  Con **Invia subito a Tempo** attivo, salvando la voce le ore vanno subito su Tempo; altrimenti restano *da inviare* e le invii dopo con **Invia a Tempo** (sotto l'elenco del giorno) o dal report (**Invia a Tempo (N)** manda tutte quelle della settimana). La colonna *Jira* mostra lo stato: `✓` inviata, *da inviare*, *da aggiornare* (modificata dopo l'invio: il nuovo invio aggiorna la stessa voce su Tempo). Eliminando una voce già inviata puoi scegliere se toglierla anche da Tempo. Su Tempo le voci del giorno sono messe in fila dalle 9:00 (orario modificabile).
+
+  I token restano solo sul PC, nel file `jira.dat` cifrato per il tuo utente Windows.
 - **Impostazioni** dall'icona nell'area di notifica: orari, giorni, ore previste, frequenza del promemoria, giorni lavorativi usati per calcolare le ore settimanali previste, avvio automatico con Windows.
 
 ## Installazione
@@ -69,6 +80,7 @@ I dati sono salvati in file JSON in `%APPDATA%\ConsuntivoOre`:
 - `todos.json`: i todo, compresi quelli completati;
 - `settings.json`: le impostazioni;
 - `state.json`: lo stato interno dei promemoria;
+- `jira.dat`: i token di Jira e Tempo, cifrati (leggibili solo dal tuo utente su questo PC);
 - `backup\`: una copia di `entries.json` e di `todos.json` per ciascuno degli ultimi 7 giorni di utilizzo;
 - `errori.log`: gli eventuali errori.
 
@@ -146,7 +158,8 @@ App.axaml           Tema e stili comuni
 AppController.cs    Icona nell'area di notifica, controllo degli orari, notifiche, apertura delle finestre
 Screenshots.cs      Opzione --screenshot (immagini delle finestre con dati di esempio)
 Core/               Libreria senza interfaccia: modelli, salvataggio JSON, scheduler, report e CSV
-Platform/           Notifiche, avvio automatico e istanza singola (Windows e Linux)
+Core/Jira/          Client di Jira Cloud e Tempo, invio delle voci, token cifrati
+Platform/           Notifiche, avvio automatico, istanza singola, cifratura dei token (Windows e Linux)
 ViewModels/         Logica delle finestre: todo, consuntivazione, report
 Views/              Finestre in XAML: principale (todo e consuntivazione), report, impostazioni, dialoghi
 tests/              Test di Core
