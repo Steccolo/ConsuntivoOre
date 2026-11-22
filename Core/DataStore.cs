@@ -108,6 +108,15 @@ public sealed class DataStore
         CommitEntries(undo: () => (entry.Hours, entry.Client, entry.Note, entry.Jira) = old);
     }
 
+    /// <summary>Allinea la voce a come è su Tempo (importazione: il web vince sulle voci già inviate).</summary>
+    public void ApplyRemote(Guid id, DateOnly date, decimal hours, string note, JiraIssueRef jira, TempoSync sync)
+    {
+        var entry = Find(id) ?? throw new InvalidOperationException("Voce non trovata.");
+        var old = (entry.Date, entry.Hours, entry.Note, entry.Jira, entry.Tempo);
+        (entry.Date, entry.Hours, entry.Note, entry.Jira, entry.Tempo) = (date, hours, note, jira, sync);
+        CommitEntries(undo: () => (entry.Date, entry.Hours, entry.Note, entry.Jira, entry.Tempo) = old);
+    }
+
     /// <summary>Registra l'esito di un invio a Tempo (null = la voce non c'è più su Tempo).</summary>
     public void SetTempoSync(Guid id, TempoSync? sync)
     {
@@ -128,10 +137,13 @@ public sealed class DataStore
 
     // ------------------------------------------------------------ todo
 
-    /// <summary>Todo da completare: prima quelli con scadenza (la più vicina in alto), poi gli altri.</summary>
+    /// <summary>
+    /// Todo da completare: per priorità (alta in alto), poi quelli con scadenza (la più vicina in alto), poi gli altri.
+    /// </summary>
     public IReadOnlyList<TodoItem> OpenTodos() =>
         _todos.Where(t => !t.IsDone)
-              .OrderBy(t => t.DueDate is null)
+              .OrderByDescending(t => t.Priority)
+              .ThenBy(t => t.DueDate is null)
               .ThenBy(t => t.DueDate)
               .ThenBy(t => t.CreatedAt)
               .ToList();
@@ -154,9 +166,18 @@ public sealed class DataStore
     public void UpdateTodo(Guid id, string name, decimal plannedHours, string description, DateOnly? dueDate)
     {
         var todo = FindTodo(id) ?? throw new InvalidOperationException("Todo non trovato.");
-        var old = (todo.Name, todo.PlannedHours, todo.Description, todo.DueDate);
-        (todo.Name, todo.PlannedHours, todo.Description, todo.DueDate) = (name, plannedHours, description, dueDate);
-        CommitTodos(undo: () => (todo.Name, todo.PlannedHours, todo.Description, todo.DueDate) = old);
+        UpdateTodo(id, name, plannedHours, description, dueDate, todo.Priority, todo.Jira);
+    }
+
+    public void UpdateTodo(Guid id, string name, decimal plannedHours, string description, DateOnly? dueDate,
+        TodoPriority priority, JiraIssueRef? jira)
+    {
+        var todo = FindTodo(id) ?? throw new InvalidOperationException("Todo non trovato.");
+        var old = (todo.Name, todo.PlannedHours, todo.Description, todo.DueDate, todo.Priority, todo.Jira);
+        (todo.Name, todo.PlannedHours, todo.Description, todo.DueDate, todo.Priority, todo.Jira) =
+            (name, plannedHours, description, dueDate, priority, jira);
+        CommitTodos(undo: () =>
+            (todo.Name, todo.PlannedHours, todo.Description, todo.DueDate, todo.Priority, todo.Jira) = old);
     }
 
     public void CompleteTodo(Guid id)
@@ -293,13 +314,7 @@ public sealed class DataStore
         {
             e.Client ??= "";
             e.Note ??= "";
-            if (e.Jira is { } j)
-            {
-                j.Key ??= "";
-                j.Summary ??= "";
-                j.ProjectName ??= "";
-                if (j.Id <= 0 || j.Key.Length == 0) e.Jira = null;
-            }
+            e.Jira = ValidIssue(e.Jira);
             if (e.Tempo is { } t) t.Note ??= "";
         }
         return entries;
@@ -315,8 +330,20 @@ public sealed class DataStore
         {
             t.Name ??= "";
             t.Description ??= "";
+            t.Jira = ValidIssue(t.Jira);
+            if (!Enum.IsDefined(t.Priority)) t.Priority = TodoPriority.Medium;
         }
         return todos;
+    }
+
+    /// <summary>Un collegamento a Jira incompleto (file modificato a mano) vale come nessun collegamento.</summary>
+    private static JiraIssueRef? ValidIssue(JiraIssueRef? j)
+    {
+        if (j is null) return null;
+        j.Key ??= "";
+        j.Summary ??= "";
+        j.ProjectName ??= "";
+        return j.Id <= 0 || j.Key.Length == 0 ? null : j;
     }
 
     private static AppSettings? ParseSettings(string json)

@@ -10,6 +10,9 @@ namespace ConsuntivoOre.Core;
 
 public sealed record JiraUser(string AccountId, string DisplayName);
 
+/// <summary>Worklog letto da Tempo (i miei, per l'importazione).</summary>
+public sealed record TempoRemoteWorklog(long WorklogId, long IssueId, DateOnly Date, TimeOnly? StartTime, int Seconds, string Description);
+
 /// <summary>Worklog come lo vuole Tempo (API v4).</summary>
 public sealed record TempoWorklog(string AuthorAccountId, long IssueId, DateOnly Date, TimeOnly StartTime, int Seconds, string Description)
 {
@@ -173,6 +176,24 @@ public sealed class JiraClient : IDisposable
 
     private static string ProjectKeyOf(string issueKey) => issueKey[..Math.Max(0, issueKey.LastIndexOf('-'))];
 
+    /// <summary>Dati delle issue indicate (per i worklog importati da Tempo, che hanno solo l'id).</summary>
+    public async Task<IReadOnlyList<JiraIssueRef>> IssuesByIdAsync(IEnumerable<long> ids, CancellationToken ct = default)
+    {
+        var result = new List<JiraIssueRef>();
+        foreach (var chunk in ids.Distinct().Chunk(100))
+        {
+            var body = new JsonObject
+            {
+                ["jql"] = $"id in ({string.Join(",", chunk.Select(i => i.ToString(CultureInfo.InvariantCulture)))})",
+                ["fields"] = new JsonArray("summary", "project"),
+                ["maxResults"] = 100,
+            };
+            var json = await SendAsync(JiraName, HttpMethod.Post, $"{_site}/rest/api/3/search/jql", body, ct);
+            result.AddRange((json?["issues"] as JsonArray ?? []).Select(ParseIssue).OfType<JiraIssueRef>());
+        }
+        return result;
+    }
+
     public static JiraIssueRef? ParseIssue(JsonNode? node)
     {
         if (node is null) return null;
@@ -199,6 +220,39 @@ public sealed class JiraClient : IDisposable
         string today = DateTime.Today.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
         await SendAsync(TempoName, HttpMethod.Get,
             $"{_tempo}/worklogs/user/{Uri.EscapeDataString(me.AccountId)}?from={today}&to={today}&limit=1", null, ct);
+    }
+
+    /// <summary>I miei worklog su Tempo nei giorni indicati (tutte le pagine).</summary>
+    public async Task<IReadOnlyList<TempoRemoteWorklog>> MyWorklogsAsync(DateOnly from, DateOnly to, CancellationToken ct = default)
+    {
+        RequireTempo();
+        var me = await MyselfAsync(ct);
+        string? url = $"{_tempo}/worklogs/user/{Uri.EscapeDataString(me.AccountId)}" +
+                      $"?from={from.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}" +
+                      $"&to={to.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}&limit=1000";
+        var result = new List<TempoRemoteWorklog>();
+        for (int page = 0; url is not null; page++)
+        {
+            // Un elenco incompleto farebbe credere cancellate su Tempo voci che ci sono: meglio fermarsi con un errore.
+            if (page == 50) throw new JiraException("Tempo ha restituito troppe pagine di worklog.");
+            var json = await SendAsync(TempoName, HttpMethod.Get, url, null, ct);
+            foreach (var node in json?["results"] as JsonArray ?? [])
+                result.Add(ParseWorklog(node) ?? throw new JiraException("Tempo ha restituito un worklog incompleto."));
+            url = json?["metadata"]?["next"]?.GetValue<string>();
+        }
+        return result;
+    }
+
+    public static TempoRemoteWorklog? ParseWorklog(JsonNode? node)
+    {
+        if (node is null) return null;
+        var inv = CultureInfo.InvariantCulture;
+        if (!long.TryParse(node["tempoWorklogId"]?.ToString(), NumberStyles.None, inv, out long id)) return null;
+        if (!long.TryParse(node["issue"]?["id"]?.ToString(), NumberStyles.None, inv, out long issueId)) return null;
+        if (!DateOnly.TryParseExact(node["startDate"]?.ToString(), "yyyy-MM-dd", inv, DateTimeStyles.None, out var date)) return null;
+        if (!int.TryParse(node["timeSpentSeconds"]?.ToString(), NumberStyles.None, inv, out int seconds)) return null;
+        TimeOnly? start = TimeOnly.TryParseExact(node["startTime"]?.ToString(), "HH:mm:ss", inv, DateTimeStyles.None, out var t) ? t : null;
+        return new TempoRemoteWorklog(id, issueId, date, start, seconds, node["description"]?.ToString() ?? "");
     }
 
     public async Task<long> CreateWorklogAsync(TempoWorklog worklog, CancellationToken ct = default)

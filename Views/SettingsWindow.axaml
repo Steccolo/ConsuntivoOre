@@ -4,109 +4,115 @@
         Title="Impostazioni — Consuntivo Ore"
         Icon="/Assets/app.ico"
         SizeToContent="WidthAndHeight" CanResize="False"
-        WindowStartupLocation="CenterScreen"
-        Background="#F3F4F6">
+        WindowStartupLocation="CenterScreen">
 
-  <StackPanel Margin="12" Spacing="10" Width="724">
-  <ScrollViewer x:Name="Scroll" MaxHeight="640" HorizontalScrollBarVisibility="Disabled">
-  <StackPanel Spacing="10" Width="700" HorizontalAlignment="Left">
+  <StackPanel Margin="0,0,0,24" Width="800">
+    <ScrollViewer x:Name="Scroll" MaxHeight="700" HorizontalScrollBarVisibility="Disabled">
+      <StackPanel Spacing="16" Margin="32,28,32,8">
+        <TextBlock Classes="page-title" Text="Impostazioni" />
 
-    <Border Classes="card">
-      <StackPanel Spacing="8">
-        <TextBlock Classes="title" Text="Promemoria consuntivazione" />
-        <CheckBox x:Name="ReminderEnabled" Content="Ricordami di consuntivare le ore" />
-        <Grid x:Name="ReminderPanel" ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="8">
-          <Label Classes="field" Content="Orario" />
-          <TimePicker x:Name="ReminderTime" Grid.Column="1" ClockIdentifier="24HourClock" MinuteIncrement="5" />
-          <Label Classes="field" Grid.Row="1" Content="Giorni" />
-          <WrapPanel x:Name="ReminderDays" Grid.Row="1" Grid.Column="1" />
-          <Label Classes="field" Grid.Row="2" Content="Ore giornaliere previste" />
-          <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" Spacing="10">
-            <NumericUpDown x:Name="Target" Minimum="0" Maximum="24" Increment="0.5" FormatString="0.#" Width="130" />
-            <TextBlock Classes="hint" Text="h (se le raggiungi non ricevi il promemoria)" />
+        <Border Classes="card compact">
+          <StackPanel Spacing="12">
+            <TextBlock Classes="title" Text="Giornata lavorativa" />
+            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto" RowSpacing="12">
+              <Label Classes="field" Content="Orario" />
+              <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10">
+                <TextBlock Classes="hint" Text="dalle" FontSize="13" />
+                <TimePicker x:Name="WorkStart" ClockIdentifier="24HourClock" MinuteIncrement="15" />
+                <TextBlock Classes="hint" Text="alle" FontSize="13" />
+                <TimePicker x:Name="WorkEnd" ClockIdentifier="24HourClock" MinuteIncrement="15" />
+              </StackPanel>
+              <Label Classes="field" Grid.Row="1" Content="Pausa" />
+              <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Spacing="10">
+                <NumericUpDown x:Name="BreakMinutes" Minimum="0" Maximum="480" Increment="15" FormatString="0" Width="140" />
+                <TextBlock Classes="hint" Text="minuti" FontSize="13" />
+              </StackPanel>
+              <Label Classes="field" Grid.Row="2" Content="Giorni lavorativi" />
+              <WrapPanel x:Name="WorkDays" Grid.Row="2" Grid.Column="1" />
+            </Grid>
+            <TextBlock x:Name="WorkDaySummary" FontWeight="SemiBold" Foreground="#1D4ED8" FontSize="13" TextWrapping="Wrap" />
           </StackPanel>
-          <Label Classes="field" Grid.Row="3" Content="Ripeti ogni" />
-          <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Spacing="10">
-            <NumericUpDown x:Name="Repeat" Minimum="0" Maximum="240" Increment="5" FormatString="0" Width="130" />
-            <TextBlock Classes="hint" Text="minuti finché non le raggiungi (0 = non ripetere)" />
+        </Border>
+
+        <Border Classes="card compact">
+          <StackPanel Spacing="12">
+            <TextBlock Classes="title" Text="Promemoria consuntivazione" />
+            <CheckBox x:Name="ReminderEnabled" Content="Ricordami di consuntivare le ore a fine giornata" />
+            <Grid x:Name="ReminderPanel" ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto" RowSpacing="12">
+              <Label Classes="field" Content="Giorni" />
+              <WrapPanel x:Name="ReminderDays" Grid.Column="1" />
+              <Label Classes="field" Grid.Row="1" Content="Ripeti ogni" />
+              <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Spacing="10">
+                <NumericUpDown x:Name="Repeat" Minimum="0" Maximum="240" Increment="5" FormatString="0" Width="140" />
+                <TextBlock Classes="hint" Text="minuti finché non raggiungi le ore previste (0 = non ripetere)" />
+              </StackPanel>
+            </Grid>
           </StackPanel>
-        </Grid>
-      </StackPanel>
-    </Border>
+        </Border>
 
-    <Border Classes="card">
-      <StackPanel Spacing="8">
-        <TextBlock Classes="title" Text="Report settimanale" />
-        <CheckBox x:Name="ReportEnabled" Content="Inviami il report settimanale" />
-        <Grid x:Name="ReportPanel" ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto" RowSpacing="8">
-          <Label Classes="field" Content="Giorno" />
-          <ComboBox x:Name="ReportDay" Grid.Column="1" Width="160" />
-          <Label Classes="field" Grid.Row="1" Content="Orario" />
-          <TimePicker x:Name="ReportTime" Grid.Row="1" Grid.Column="1" ClockIdentifier="24HourClock" MinuteIncrement="5" />
-        </Grid>
-      </StackPanel>
-    </Border>
-
-    <Border Classes="card">
-      <StackPanel Spacing="8">
-        <TextBlock Classes="title" Text="Generale" />
-        <CheckBox x:Name="OpenWindow" Content="Apri la finestra insieme alla notifica" />
-        <CheckBox x:Name="AutostartBox" Content="Avvia automaticamente all'accensione del PC" />
-        <StackPanel Orientation="Horizontal" Spacing="4">
-          <Label Classes="field" Content="Giorni lavorativi" />
-          <WrapPanel x:Name="WorkDays" />
-        </StackPanel>
-        <StackPanel Orientation="Horizontal" Spacing="8">
-          <Button x:Name="OpenFolder" Content="Apri cartella dati" />
-          <Button x:Name="TestNotification" Content="Invia notifica di prova" />
-        </StackPanel>
-      </StackPanel>
-    </Border>
-
-    <Border Classes="card">
-      <StackPanel Spacing="8">
-        <TextBlock Classes="title" Text="Jira e Tempo" />
-        <CheckBox x:Name="JiraEnabled" Content="Registra le ore su Jira con Tempo" />
-        <Grid x:Name="JiraPanel" ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="8">
-          <Label Classes="field" Content="Indirizzo Jira" />
-          <TextBox x:Name="JiraSite" Grid.Column="1" PlaceholderText="https://azienda.atlassian.net" />
-
-          <Label Classes="field" Grid.Row="1" Content="Email" />
-          <TextBox x:Name="JiraEmail" Grid.Row="1" Grid.Column="1" PlaceholderText="l'email con cui accedi a Jira" />
-
-          <Label Classes="field" Grid.Row="2" Content="Token API Jira" />
-          <Grid Grid.Row="2" Grid.Column="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">
-            <TextBox x:Name="JiraToken" PasswordChar="•" PlaceholderText="da id.atlassian.com → Sicurezza → Token API" />
-            <Button x:Name="OpenJiraTokenPage" Grid.Column="1" Content="Crea token…" />
-          </Grid>
-
-          <Label Classes="field" Grid.Row="3" Content="Token Tempo" />
-          <TextBox x:Name="TempoToken" Grid.Row="3" Grid.Column="1" PasswordChar="•"
-                   PlaceholderText="in Tempo: Impostazioni → Integrazione API → Nuovo token" />
-
-          <Label Classes="field" Grid.Row="4" Content="Prima voce alle" />
-          <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal" Spacing="10">
-            <TimePicker x:Name="JiraDayStart" ClockIdentifier="24HourClock" MinuteIncrement="15" />
-            <TextBlock Classes="hint" Text="su Tempo le voci del giorno partono da qui, in fila" />
+        <Border Classes="card compact">
+          <StackPanel Spacing="12">
+            <TextBlock Classes="title" Text="Report settimanale" />
+            <CheckBox x:Name="ReportEnabled" Content="Inviami il report settimanale" />
+            <StackPanel x:Name="ReportPanel" Orientation="Horizontal" Spacing="12">
+              <Label Classes="field" Content="Giorno" />
+              <ComboBox x:Name="ReportDay" Width="170" />
+              <Label Classes="field" Content="Orario" Margin="12,0,4,0" />
+              <TimePicker x:Name="ReportTime" ClockIdentifier="24HourClock" MinuteIncrement="5" />
+            </StackPanel>
           </StackPanel>
+        </Border>
 
-          <Label Classes="field" Grid.Row="5" Content="API Tempo" />
-          <TextBox x:Name="TempoUrl" Grid.Row="5" Grid.Column="1"
-                   ToolTip.Tip="Da cambiare solo se Tempo usa i data center europei o americani (es. https://api.eu.tempo.io/4)" />
-        </Grid>
-        <StackPanel Orientation="Horizontal" Spacing="10">
-          <Button x:Name="TestJira" Content="Prova connessione" />
-          <TextBlock Classes="hint" Text="I token restano su questo PC, cifrati per il tuo utente Windows." />
-        </StackPanel>
-        <SelectableTextBlock x:Name="JiraTestResult" TextWrapping="Wrap" FontSize="12" IsVisible="False" />
+        <Border Classes="card compact">
+          <StackPanel Spacing="12">
+            <TextBlock Classes="title" Text="Generale" />
+            <CheckBox x:Name="OpenWindow" Content="Apri la finestra insieme alla notifica" />
+            <CheckBox x:Name="AutostartBox" Content="Avvia automaticamente all'accensione del PC" />
+            <StackPanel Orientation="Horizontal" Spacing="12">
+              <Button x:Name="OpenFolder" Content="Apri cartella dati" />
+              <Button x:Name="TestNotification" Content="Invia notifica di prova" />
+            </StackPanel>
+          </StackPanel>
+        </Border>
+
+        <Border Classes="card compact">
+          <StackPanel Spacing="12">
+            <TextBlock Classes="title" Text="Jira e Tempo" />
+            <CheckBox x:Name="JiraEnabled" Content="Registra le ore su Jira con Tempo" />
+            <Grid x:Name="JiraPanel" ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto" RowSpacing="12">
+              <Label Classes="field" Content="Indirizzo Jira" />
+              <TextBox x:Name="JiraSite" Grid.Column="1" PlaceholderText="https://azienda.atlassian.net" />
+
+              <Label Classes="field" Grid.Row="1" Content="Email" />
+              <TextBox x:Name="JiraEmail" Grid.Row="1" Grid.Column="1" PlaceholderText="l'email con cui accedi a Jira" />
+
+              <Label Classes="field" Grid.Row="2" Content="Token API Jira" />
+              <Grid Grid.Row="2" Grid.Column="1" ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                <TextBox x:Name="JiraToken" PasswordChar="•" PlaceholderText="da id.atlassian.com → Sicurezza → Token API" />
+                <Button x:Name="OpenJiraTokenPage" Grid.Column="1" Content="Crea token…" />
+              </Grid>
+
+              <Label Classes="field" Grid.Row="3" Content="Token Tempo" />
+              <TextBox x:Name="TempoToken" Grid.Row="3" Grid.Column="1" PasswordChar="•"
+                       PlaceholderText="in Tempo: Impostazioni → Integrazione API → Nuovo token" />
+
+              <Label Classes="field" Grid.Row="4" Content="API Tempo" />
+              <TextBox x:Name="TempoUrl" Grid.Row="4" Grid.Column="1"
+                       ToolTip.Tip="Da cambiare solo se Tempo usa i data center europei o americani (es. https://api.eu.tempo.io/4)" />
+            </Grid>
+            <StackPanel Orientation="Horizontal" Spacing="12">
+              <Button x:Name="TestJira" Content="Prova connessione" />
+              <TextBlock Classes="hint" Text="I token restano su questo PC, cifrati per il tuo utente Windows." />
+            </StackPanel>
+            <SelectableTextBlock x:Name="JiraTestResult" TextWrapping="Wrap" FontSize="13" IsVisible="False" />
+          </StackPanel>
+        </Border>
       </StackPanel>
-    </Border>
-  </StackPanel>
-  </ScrollViewer>
+    </ScrollViewer>
 
-    <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
-      <Button x:Name="CancelButton" Content="Annulla" IsCancel="True" />
-      <Button x:Name="SaveButton" Classes="accent" Content="Salva" IsDefault="True" MinWidth="90" />
+    <StackPanel Orientation="Horizontal" Spacing="12" HorizontalAlignment="Right" Margin="32,16,32,0">
+      <Button x:Name="CancelButton" Content="Annulla" IsCancel="True" MinWidth="100" />
+      <Button x:Name="SaveButton" Classes="accent" Content="Salva" IsDefault="True" MinWidth="120" />
     </StackPanel>
   </StackPanel>
 </Window>

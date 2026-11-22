@@ -17,6 +17,40 @@ public static class JiraLabel
     };
 }
 
+/// <summary>Etichetta colorata dello stato su Tempo (Inviato, Da inviare, Da aggiornare, Da togliere).</summary>
+public static class JiraBadge
+{
+    private static readonly IBrush GreenBack = new SolidColorBrush(Color.FromRgb(220, 252, 231));
+    private static readonly IBrush GreenText = new SolidColorBrush(Color.FromRgb(21, 128, 61));
+    private static readonly IBrush YellowBack = new SolidColorBrush(Color.FromRgb(254, 243, 199));
+    private static readonly IBrush YellowText = new SolidColorBrush(Color.FromRgb(180, 83, 9));
+    private static readonly IBrush RedBack = new SolidColorBrush(Color.FromRgb(254, 226, 226));
+    private static readonly IBrush RedText = new SolidColorBrush(Color.FromRgb(220, 38, 38));
+
+    public static string Text(TimeEntry e) => e.JiraStatus switch
+    {
+        JiraStatus.None => "",
+        JiraStatus.Sent => "Inviato",
+        JiraStatus.ToSend => "Da inviare",
+        _ when e.Jira is null => "Da togliere",
+        _ => "Da aggiornare",
+    };
+
+    public static IBrush Back(TimeEntry e) => e.JiraStatus switch
+    {
+        JiraStatus.Sent => GreenBack,
+        JiraStatus.ToSend => YellowBack,
+        _ => RedBack,
+    };
+
+    public static IBrush Fore(TimeEntry e) => e.JiraStatus switch
+    {
+        JiraStatus.Sent => GreenText,
+        JiraStatus.ToSend => YellowText,
+        _ => RedText,
+    };
+}
+
 /// <summary>Una voce del giorno, già pronta da mostrare.</summary>
 public sealed class EntryRow(TimeEntry entry)
 {
@@ -24,7 +58,13 @@ public sealed class EntryRow(TimeEntry entry)
     public string Hours => Fmt.Hours(Entry.Hours);
     public string Client => Entry.Client;
     public string Jira => JiraLabel.For(Entry);
-    public string Note => Entry.Note.ReplaceLineEndings(" ").Trim();
+    public string JiraKey => Entry.Jira?.Key ?? "";
+    public string JiraTip => Entry.Jira?.Display ?? "";
+    public string Status => JiraBadge.Text(Entry);
+    public bool HasStatus => Status.Length > 0;
+    public IBrush StatusBack => JiraBadge.Back(Entry);
+    public IBrush StatusFore => JiraBadge.Fore(Entry);
+    public string Note => Entry.Note.Trim().Length > 0 ? Entry.Note.Trim() : "—";
 }
 
 /// <summary>Scheda di consuntivazione: ore, cliente e nota per il giorno scelto.</summary>
@@ -180,6 +220,39 @@ public sealed partial class EntryViewModel : ObservableObject
         }
     }
 
+    private bool CanImport => JiraEnabled && !IsImporting;
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(ImportCommand))]
+    public partial bool IsImporting { get; set; }
+
+    /// <summary>Porta in tabella le ore del giorno registrate su Jira/Tempo (anche dal web).</summary>
+    [RelayCommand(CanExecute = nameof(CanImport))]
+    private async Task Import()
+    {
+        if (_jira is null) return;
+        var day = SelectedDay;
+        IsImporting = true;
+        Message = "Importazione da Jira in corso…";
+        MessageIsError = false;
+        try
+        {
+            Message = (await _jira.ImportAsync(day, day)).Summary();
+        }
+        catch (JiraException ex)
+        {
+            ShowError("Importazione da Jira non riuscita: " + ex.Message);
+        }
+        catch (Exception ex) when (DataStore.IsFileError(ex))
+        {
+            ShowError($"Importazione interrotta, impossibile salvare: {ex.Message}");
+        }
+        finally
+        {
+            IsImporting = false;
+        }
+    }
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(SaveText), nameof(IsEditing))]
     public partial Guid? EditingId { get; set; }
@@ -199,6 +272,8 @@ public sealed partial class EntryViewModel : ObservableObject
 
     public bool HasSelection => Selected is not null;
 
+    /// <summary>"Venerdì 20/11/2026 · 2 attività".</summary>
+    [ObservableProperty] public partial string DayTitle { get; set; } = "";
     [ObservableProperty] public partial string Total { get; set; } = "";
     [ObservableProperty] public partial IBrush TotalBrush { get; set; } = Normal;
 
@@ -215,6 +290,7 @@ public sealed partial class EntryViewModel : ObservableObject
         Rows.Clear();
         foreach (var entry in _store.EntriesBetween(day, day)) Rows.Add(new EntryRow(entry));
         Selected = Rows.FirstOrDefault(r => r.Entry.Id == selectedId);
+        DayTitle = $"{Fmt.DayFull(day)} · " + (Rows.Count switch { 0 => "nessuna attività", 1 => "1 attività", var n => $"{n} attività" });
 
         decimal total = _store.HoursOn(day);
         decimal target = _store.Settings.DailyTargetHours;
@@ -227,6 +303,7 @@ public sealed partial class EntryViewModel : ObservableObject
         JiraEnabled = _jira?.IsEnabled == true;
         OnPropertyChanged(nameof(SendImmediately));
         SendSelectedCommand.NotifyCanExecuteChanged();
+        ImportCommand.NotifyCanExecuteChanged();
     }
 
     // Mentre una voce va a Tempo si può già inserire la successiva.

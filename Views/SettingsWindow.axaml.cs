@@ -34,6 +34,9 @@ public partial class SettingsWindow : Window
 
         ReminderEnabled.IsCheckedChanged += (_, _) => UpdateEnabled();
         ReportEnabled.IsCheckedChanged += (_, _) => UpdateEnabled();
+        WorkStart.SelectedTimeChanged += (_, _) => UpdateWorkDaySummary();
+        WorkEnd.SelectedTimeChanged += (_, _) => UpdateWorkDaySummary();
+        BreakMinutes.ValueChanged += (_, _) => UpdateWorkDaySummary();
         OpenFolder.Click += (_, _) => OpenDataFolder();
         TestNotification.Click += (_, _) => sendTestNotification();
         CancelButton.Click += (_, _) => Close();
@@ -54,11 +57,12 @@ public partial class SettingsWindow : Window
     private void LoadValues()
     {
         var s = _store.Settings;
+        WorkStart.SelectedTime = s.DayStart.ToTimeSpan();
+        WorkEnd.SelectedTime = s.DayEnd.ToTimeSpan();
+        BreakMinutes.Value = Math.Clamp(s.BreakMinutes ?? 0, 0, 480);
         ReminderEnabled.IsChecked = s.ReminderEnabled;
-        ReminderTime.SelectedTime = s.ReminderTime.ToTimeSpan();
         foreach (var box in _reminderDays) box.IsChecked = s.ReminderDays.Contains((DayOfWeek)box.Tag!);
         Repeat.Value = Math.Clamp(s.ReminderRepeatMinutes, 0, 240);
-        Target.Value = Math.Clamp(s.DailyTargetHours, 0, 24);
         foreach (var box in _workDays) box.IsChecked = s.WorkDays.Contains((DayOfWeek)box.Tag!);
         ReportEnabled.IsChecked = s.ReportEnabled;
         ReportDay.SelectedIndex = Fmt.MondayIndex(s.ReportDay);
@@ -71,10 +75,26 @@ public partial class SettingsWindow : Window
         JiraSite.Text = j.SiteUrl;
         JiraEmail.Text = j.Email;
         TempoUrl.Text = j.TempoApiUrl;
-        JiraDayStart.SelectedTime = j.DayStart.ToTimeSpan();
         JiraToken.Text = _jira?.Credentials.JiraToken ?? "";
         TempoToken.Text = _jira?.Credentials.TempoToken ?? "";
         UpdateEnabled();
+        UpdateWorkDaySummary();
+    }
+
+    private (TimeOnly Start, TimeOnly End, int Break) WorkDayFromForm()
+    {
+        var s = _store.Settings;
+        return (ToTime(WorkStart.SelectedTime, s.DayStart), ToTime(WorkEnd.SelectedTime, s.DayEnd), (int)(BreakMinutes.Value ?? 0));
+    }
+
+    /// <summary>Mostra subito cosa ne deriva: ore previste al giorno e orario del promemoria.</summary>
+    private void UpdateWorkDaySummary()
+    {
+        var (start, end, pause) = WorkDayFromForm();
+        WorkDaySummary.Text = end <= start
+            ? "La fine deve venire dopo l'inizio."
+            : $"Ore previste: {Fmt.Hours(AppSettings.TargetHours(start, end, pause))} h al giorno · " +
+              $"promemoria alle {end:HH\\:mm} · su Tempo la prima voce del giorno parte alle {start:HH\\:mm}";
     }
 
     /// <summary>Impostazioni Jira come sono nel form (non ancora salvate).</summary>
@@ -88,7 +108,7 @@ public partial class SettingsWindow : Window
             Email = JiraEmail.Text ?? "",
             TempoApiUrl = TempoUrl.Text ?? "",
             SendImmediately = current.SendImmediately,
-            DayStart = ToTime(JiraDayStart.SelectedTime, current.DayStart),
+            DayStart = WorkDayFromForm().Start,
         };
         settings.Normalize();
         var creds = new JiraCredentials { JiraToken = (JiraToken.Text ?? "").Trim(), TempoToken = (TempoToken.Text ?? "").Trim() };
@@ -139,6 +159,13 @@ public partial class SettingsWindow : Window
             return;
         }
 
+        var (start, end, pause) = WorkDayFromForm();
+        if (end <= start)
+        {
+            await MessageDialog.Show(this, "La fine della giornata lavorativa deve venire dopo l'inizio.");
+            return;
+        }
+
         var (jiraSettings, jiraCreds) = JiraFromForm();
         if (jiraSettings.Enabled && (jiraSettings.SiteUrl.Length == 0 || jiraSettings.Email.Length == 0 || jiraCreds.JiraToken.Length == 0))
         {
@@ -148,11 +175,11 @@ public partial class SettingsWindow : Window
 
         var s = _store.Settings;
         s.Jira = jiraSettings;
+        // Orario del promemoria e ore previste li ricalcola Normalize da inizio, fine e pausa.
+        (s.WorkStart, s.WorkEnd, s.BreakMinutes) = (start, end, pause);
         s.ReminderEnabled = ReminderEnabled.IsChecked == true;
-        s.ReminderTime = ToTime(ReminderTime.SelectedTime, s.ReminderTime);
         s.ReminderDays = days;
         s.ReminderRepeatMinutes = (int)(Repeat.Value ?? 0);
-        s.DailyTargetHours = Target.Value ?? 0;
         s.WorkDays = Checked(_workDays);
         s.ReportEnabled = ReportEnabled.IsChecked == true;
         s.ReportDay = Fmt.WeekDays[Math.Max(0, ReportDay.SelectedIndex)];

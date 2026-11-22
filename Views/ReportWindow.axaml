@@ -5,33 +5,34 @@
         x:DataType="local:ReportViewModel"
         Title="Report settimanale"
         Icon="/Assets/app.ico"
-        Width="820" Height="680" MinWidth="640" MinHeight="520"
-        WindowStartupLocation="CenterScreen"
-        Background="#F3F4F6">
+        Width="980" Height="820" MinWidth="760" MinHeight="600"
+        WindowStartupLocation="CenterScreen">
 
-  <Grid RowDefinitions="Auto,2*,*,Auto" Margin="12">
+  <Grid RowDefinitions="Auto,Auto,2*,*,Auto" Margin="32,28,32,24">
+
+    <TextBlock Classes="page-title" Text="Report settimanale" />
 
     <!-- Settimana -->
-    <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,0,0,10">
-      <Button Content="◀" Command="{Binding PreviousWeekCommand}" ToolTip.Tip="Settimana precedente" />
-      <TextBlock Text="{Binding Title}" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" Margin="8,0" />
-      <Button Content="▶" Command="{Binding NextWeekCommand}" ToolTip.Tip="Settimana successiva" />
+    <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="10" Margin="0,20,0,20">
+      <Button Classes="square" Content="‹" FontSize="20" Command="{Binding PreviousWeekCommand}" ToolTip.Tip="Settimana precedente" />
+      <TextBlock Text="{Binding Title}" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" Margin="6,0" />
+      <Button Classes="square" Content="›" FontSize="20" Command="{Binding NextWeekCommand}" ToolTip.Tip="Settimana successiva" />
       <Button Content="Questa settimana" Command="{Binding ThisWeekCommand}" />
     </StackPanel>
 
     <!-- Dettaglio: si copia la singola cella -->
-    <Border Classes="card" Grid.Row="1" Margin="0,0,0,10">
+    <Border Classes="card compact" Grid.Row="2" Margin="0,0,0,16">
       <Grid RowDefinitions="Auto,*,Auto">
-        <TextBlock Classes="title" Text="Dettaglio per giorno" />
+        <TextBlock Classes="title" Text="Dettaglio per giorno" Margin="0,0,0,12" />
         <DataGrid x:Name="DetailsGrid" Classes="cells" Grid.Row="1" ItemsSource="{Binding Details}"
                   SelectionMode="Single" IsReadOnly="True" CanUserSortColumns="False"
-                  CanUserReorderColumns="False" GridLinesVisibility="Horizontal"
-                  HeadersVisibility="Column" BorderThickness="0" ClipboardCopyMode="None">
+                  CanUserReorderColumns="False" ClipboardCopyMode="None">
           <DataGrid.Styles>
             <Style Selector="DataGridRow" x:DataType="local:ReportRow">
               <Setter Property="Background" Value="{Binding Background}" />
               <Setter Property="Foreground" Value="{Binding Foreground}" />
               <Setter Property="FontWeight" Value="{Binding Weight}" />
+              <Setter Property="MinHeight" Value="40" />
             </Style>
           </DataGrid.Styles>
           <DataGrid.ContextMenu>
@@ -40,35 +41,39 @@
             </ContextMenu>
           </DataGrid.ContextMenu>
           <DataGrid.Columns>
-            <DataGridTextColumn Header="Cliente" Binding="{Binding Client}" Width="200" x:DataType="local:ReportRow" />
-            <DataGridTextColumn Header="Ore" Binding="{Binding Hours}" Width="80" x:DataType="local:ReportRow" />
-            <DataGridTextColumn Header="Jira" Binding="{Binding Jira}" Width="150" x:DataType="local:ReportRow" />
-            <DataGridTextColumn Header="Nota" Binding="{Binding Note}" Width="*" x:DataType="local:ReportRow" />
+            <DataGridTextColumn Header="CLIENTE" Binding="{Binding Client}" Width="220" x:DataType="local:ReportRow" />
+            <DataGridTextColumn Header="ORE" Binding="{Binding Hours}" Width="80" x:DataType="local:ReportRow" />
+            <DataGridTextColumn Header="JIRA" Binding="{Binding Jira}" Width="200" x:DataType="local:ReportRow" />
+            <DataGridTextColumn Header="NOTA" Binding="{Binding Note}" Width="*" x:DataType="local:ReportRow" />
           </DataGrid.Columns>
         </DataGrid>
-        <TextBlock Classes="hint" Grid.Row="2" Text="{Binding Status}" Margin="0,8,0,0" />
+        <TextBlock Classes="hint" Grid.Row="2" Text="{Binding Status}" Margin="0,10,0,0" />
       </Grid>
     </Border>
 
     <!-- Totale per cliente -->
-    <Border Classes="card" Grid.Row="2" Margin="0,0,0,10">
+    <Border Classes="card compact" Grid.Row="3" Margin="0,0,0,20">
       <Grid RowDefinitions="Auto,*">
-        <TextBlock Classes="title" Text="Totale per cliente" />
+        <TextBlock Classes="title" Text="Totale per cliente" Margin="0,0,0,12" />
         <DataGrid x:Name="ClientsGrid" Grid.Row="1" ItemsSource="{Binding ByClient}" IsReadOnly="True" CanUserSortColumns="False"
-                  CanUserReorderColumns="False" GridLinesVisibility="Horizontal" HeadersVisibility="Column"
-                  BorderThickness="0">
+                  CanUserReorderColumns="False">
+          <DataGrid.Styles>
+            <Style Selector="DataGridRow">
+              <Setter Property="MinHeight" Value="40" />
+            </Style>
+          </DataGrid.Styles>
           <DataGrid.Columns>
-            <DataGridTextColumn Header="Cliente" Binding="{Binding Client}" Width="*" x:DataType="local:ClientRow" />
-            <DataGridTextColumn Header="Ore" Binding="{Binding Hours}" Width="100" x:DataType="local:ClientRow" />
+            <DataGridTextColumn Header="CLIENTE" Binding="{Binding Client}" Width="*" x:DataType="local:ClientRow" />
+            <DataGridTextColumn Header="ORE" Binding="{Binding Hours}" Width="100" x:DataType="local:ClientRow" />
             <DataGridTextColumn Header="%" Binding="{Binding Percent}" Width="100" x:DataType="local:ClientRow" />
           </DataGrid.Columns>
         </DataGrid>
       </Grid>
     </Border>
 
-    <Grid Grid.Row="3" ColumnDefinitions="*,Auto">
-      <TextBlock Text="{Binding Total}" FontWeight="Bold" VerticalAlignment="Center" />
-      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+    <Grid Grid.Row="4" ColumnDefinitions="*,Auto">
+      <TextBlock Classes="total" Text="{Binding Total}" VerticalAlignment="Center" />
+      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12">
         <Button Classes="accent" Content="{Binding SendText}" Command="{Binding SendToTempoCommand}"
                 IsVisible="{Binding JiraEnabled}"
                 ToolTip.Tip="Invia a Tempo le voci della settimana collegate a una issue e non ancora inviate o modificate" />

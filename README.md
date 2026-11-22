@@ -2,24 +2,34 @@
 
 Piccola applicazione per Windows (funziona anche su Linux) che ricorda di **consuntivare le ore di lavoro** e prepara un **report settimanale**.
 
-Si avvia insieme a Windows, apre la scheda **Todo** e resta nell'area di notifica (in basso a destra, vicino all'orologio). All'orario scelto mostra una notifica e apre la scheda in cui segnare le ore della giornata.
+Si avvia insieme a Windows, apre la **Dashboard** e resta nell'area di notifica (in basso a destra, vicino all'orologio). A fine giornata mostra una notifica e apre la scheda in cui segnare le ore.
 
 ## Funzionalità
 
-- **Promemoria giornaliero.** Arriva come notifica di Windows all'orario e nei giorni che scegli (predefinito: 17:30, da lunedì a venerdì).
-  - Si ripete a intervalli regolari finché non raggiungi le ore previste (predefinito: ogni 30 minuti, fino a 8 h).
+- **Dashboard** (vista iniziale). Due indicatori a semicerchio con le ore di **oggi** e della **settimana** rispetto a quelle previste, e la ripartizione delle ore della settimana **per progetto Jira** o **per issue** (selettore *Progetto / Issue*), con percentuale e ore; le ore non collegate a Jira sono in fondo, alla voce *Senza Jira*.
+- **Giornata lavorativa** (impostazioni). Indichi inizio, fine e pausa:
+  - le **ore previste** al giorno sono fine − inizio − pausa (es. 9:00–18:00 con 60 minuti di pausa = 8 h);
+  - il **promemoria** arriva all'ora di fine giornata;
+  - su Tempo la prima voce del giorno parte all'ora di inizio.
+
+  Aggiornando dalla 1.x non cambia nulla: inizio, fine e pausa vengono ricavati dalle impostazioni di prima.
+- **Promemoria giornaliero.** Arriva come notifica di Windows a fine giornata, nei giorni che scegli (predefinito: da lunedì a venerdì).
+  - Si ripete a intervalli regolari finché non raggiungi le ore previste (predefinito: ogni 30 minuti).
   - Se hai già segnato tutte le ore, non ricevi nessun avviso.
   - Nei giorni di ferie o malattia puoi fermarlo con **Non ricordarmelo oggi**, dalla finestra o dal menu dell'icona.
   - La notifica ha tre pulsanti: **Consuntiva** apre la finestra, **Tra 30 minuti** la rimanda (torna una volta anche se di norma non si ripeterebbe), **Non oggi** la ferma fino a domani.
-- **Todo.** All'avvio la finestra si apre sulla scheda *Todo*. Per ogni task indichi:
+- **Todo.** Per ogni task indichi:
   - il nome (obbligatorio);
-  - una descrizione (obbligatoria);
-  - le ore previste (facoltative);
-  - la data entro cui completarlo (facoltativa). I task in scadenza oggi sono evidenziati in giallo con il testo nero, quelli scaduti in giallo con il testo rosso.
+  - una descrizione (obbligatoria), anche **su più righe** con elenchi puntati: in tabella si vede come l'hai scritta;
+  - la **priorità** (alta, media, bassa; predefinita media);
+  - le ore previste e la data entro cui completarlo (facoltative);
+  - la **issue Jira** su cui finiranno le ore (facoltativa, con *Scegli issue…*).
 
-  Con **Consuntiva…** registri le ore del task: il giorno proposto è oggi, ma puoi sceglierne un altro. Il nome diventa il cliente e la descrizione la nota. Le ore proposte sono quelle previste ancora da fare (se le hai indicate). Il task consuntivato resta in elenco, evidenziato in verde, con le ore registrate nella colonna **Consuntivato**; puoi consuntivarlo ancora in un altro giorno.
+  La tabella è divisa per priorità (*Priorità alta*, *media*, *bassa*): un gruppo compare solo se contiene almeno un todo. Dentro il gruppo, prima le scadenze più vicine. I task scaduti sono in rosso con l'etichetta *Scaduto*, quelli in scadenza oggi hanno l'etichetta *Oggi*; i completati sono in fondo, in verde.
 
-  Con **Completato** segni come fatto un task senza consuntivarlo: anche lui resta in elenco, in verde, in fondo ai task da fare; **Riapri** lo riporta tra quelli da fare ed **Elimina** lo toglie del tutto.
+  Con **Consuntiva…** registri le ore del task: il giorno proposto è oggi, ma puoi sceglierne un altro. Il nome diventa il cliente e la descrizione la nota. Se il todo ha una issue Jira, le ore vengono **inviate subito a Tempo** e la voce compare tra i consuntivi come *Inviato*. Il task consuntivato diventa completato; puoi consuntivarlo ancora in un altro giorno.
+
+  **Completato** segna come fatto un task senza consuntivarlo, **Riapri** lo riporta tra quelli da fare ed **Elimina** lo toglie del tutto.
 - **Consuntivazione.** Per ogni attività indichi:
   - le ore (es. `1,5`);
   - il cliente, scelto da un elenco che ricorda quelli già usati;
@@ -28,7 +38,7 @@ Si avvia insieme a Windows, apre la scheda **Todo** e resta nell'area di notific
   Puoi segnare le ore anche per i giorni precedenti e modificare o eliminare le voci già inserite.
 - **Report settimanale.** Arriva all'orario impostato (predefinito: venerdì alle 17:45). Se il PC era spento, arriva alla prima accensione della stessa settimana.
   - Mostra le ore giorno per giorno e il totale per cliente, con le percentuali.
-  - Ogni campo del dettaglio (cliente, ore, nota) si seleziona da solo: `Ctrl+C`, doppio clic o clic destro → *Copia* lo copiano negli appunti, per esempio per incollarlo in Jira. Le ore si copiano nel formato di Jira (`1,5` → `1h 30m`).
+  - Ogni campo del dettaglio (cliente, ore, issue, nota) si seleziona da solo: `Ctrl+C`, doppio clic o clic destro → *Copia* lo copiano negli appunti. Le ore si copiano nel formato di Jira (`1,5` → `1h 30m`).
   - Puoi copiarlo come testo, per esempio per incollarlo in una mail.
   - Puoi esportarlo in CSV, che si apre direttamente in Excel.
 - **Jira e Tempo** (Jira Cloud con Tempo Timesheets). Si attiva nelle impostazioni, sezione *Jira e Tempo*:
@@ -39,10 +49,12 @@ Si avvia insieme a Windows, apre la scheda **Todo** e resta nell'area di notific
 
   Nella scheda *Consuntiva ore* compare la riga **Jira**: con **Scegli issue…** cerchi la issue per chiave (`ABC-123`), per parole del titolo o per chiave del progetto; senza scrivere nulla vedi le issue assegnate a te o su cui hai lavorato di recente. Sono proposte **solo le issue dei progetti in cui hai il permesso di registrare lavoro**.
 
-  Con **Invia subito a Tempo** attivo, salvando la voce le ore vanno subito su Tempo; altrimenti restano *da inviare* e le invii dopo con **Invia a Tempo** (sotto l'elenco del giorno) o dal report (**Invia a Tempo (N)** manda tutte quelle della settimana). La colonna *Jira* mostra lo stato: `✓` inviata, *da inviare*, *da aggiornare* (modificata dopo l'invio: il nuovo invio aggiorna la stessa voce su Tempo). Eliminando una voce già inviata puoi scegliere se toglierla anche da Tempo. Su Tempo le voci del giorno sono messe in fila dalle 9:00 (orario modificabile).
+  Con **Invia subito a Tempo** attivo, salvando la voce le ore vanno subito su Tempo; altrimenti restano *Da inviare* e le invii dopo con **Invia a Tempo** (sotto l'elenco del giorno) o dal report (**Invia a Tempo (N)** manda tutte quelle della settimana). La colonna *Jira* mostra lo stato: *Inviato*, *Da inviare*, *Da aggiornare* (modificata dopo l'invio: il nuovo invio aggiorna la stessa voce su Tempo). Eliminando una voce già inviata puoi scegliere se toglierla anche da Tempo.
+
+  **Importa da Jira** porta nella tabella le ore del giorno registrate su Tempo, anche quelle inserite dal web; all'avvio l'app lo fa da sola per la giornata di oggi. Le voci già inviate e non modificate si allineano al web (se le hai cambiate o cancellate su Tempo, cambiano o spariscono anche qui); quelle che hai modificato in locale e non ancora inviato restano come sono.
 
   I token restano solo sul PC, nel file `jira.dat` cifrato per il tuo utente Windows.
-- **Impostazioni** dall'icona nell'area di notifica: orari, giorni, ore previste, frequenza del promemoria, giorni lavorativi usati per calcolare le ore settimanali previste, avvio automatico con Windows.
+- **Impostazioni** dall'icona nell'area di notifica: giornata lavorativa, giorni e ripetizione del promemoria, report settimanale, avvio automatico con Windows, Jira e Tempo.
 
 ## Installazione
 
@@ -157,11 +169,11 @@ Program.cs          Avvio, istanza singola, opzioni da riga di comando
 App.axaml           Tema e stili comuni
 AppController.cs    Icona nell'area di notifica, controllo degli orari, notifiche, apertura delle finestre
 Screenshots.cs      Opzione --screenshot (immagini delle finestre con dati di esempio)
-Core/               Libreria senza interfaccia: modelli, salvataggio JSON, scheduler, report e CSV
+Core/               Libreria senza interfaccia: modelli, salvataggio JSON, scheduler, report e CSV, dashboard
 Core/Jira/          Client di Jira Cloud e Tempo, invio delle voci, token cifrati
 Platform/           Notifiche, avvio automatico, istanza singola, cifratura dei token (Windows e Linux)
-ViewModels/         Logica delle finestre: todo, consuntivazione, report
-Views/              Finestre in XAML: principale (todo e consuntivazione), report, impostazioni, dialoghi
+ViewModels/         Logica delle finestre: dashboard, todo, consuntivazione, report
+Views/              Finestre in XAML: principale (dashboard, todo, consuntivazione), report, impostazioni, dialoghi
 tests/              Test di Core
 Assets/app.ico      Icona (rigenerabile con tools/MakeIcon.ps1)
 installer/          Script dell'installer Inno Setup

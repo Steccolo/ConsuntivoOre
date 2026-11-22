@@ -1,170 +1,339 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="using:ConsuntivoOre.ViewModels"
+        xmlns:views="using:ConsuntivoOre.Views"
         x:Class="ConsuntivoOre.Views.MainWindow"
         x:DataType="local:MainViewModel"
         Title="Consuntivo Ore"
         Icon="/Assets/app.ico"
-        Width="900" Height="680" MinWidth="720" MinHeight="560"
-        WindowStartupLocation="CenterScreen"
-        Background="#F3F4F6">
+        Width="1120" Height="960" MinWidth="900" MinHeight="700"
+        WindowStartupLocation="CenterScreen">
 
-  <TabControl x:Name="Tabs" Margin="8,4,8,8">
-    <TabItem Header="Todo">
-      <Grid RowDefinitions="Auto,*" Margin="0,6,0,0" DataContext="{Binding Todo}" x:DataType="local:TodoViewModel">
+  <TabControl x:Name="Tabs">
 
-        <!-- Nuovo todo -->
-        <Border Classes="card" Grid.Row="0" Margin="0,0,0,10">
-          <StackPanel>
-            <TextBlock Classes="title" Text="Nuovo todo" />
-            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto" RowSpacing="8">
-              <Label Classes="field" Grid.Row="0" Content="Nome" />
-              <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Name}" PlaceholderText="es. Acme" />
+    <!-- ============================================================ Dashboard -->
+    <TabItem Header="Dashboard">
+      <Grid RowDefinitions="Auto,Auto,*" Margin="40,32,40,32" DataContext="{Binding Dashboard}" x:DataType="local:DashboardViewModel">
+        <StackPanel>
+          <TextBlock Classes="page-title" Text="Consuntivo ore" />
+          <TextBlock Classes="page-subtitle" Text="{Binding Subtitle}" />
+        </StackPanel>
 
-              <Label Classes="field" Grid.Row="1" Content="Descrizione" VerticalAlignment="Top" Margin="0,6,12,0" />
-              <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Description}" AcceptsReturn="True"
-                       TextWrapping="Wrap" Height="52" PlaceholderText="Cosa c'è da fare" />
+        <Grid Grid.Row="1" ColumnDefinitions="*,*" ColumnSpacing="20" Margin="0,28,0,20">
+          <Border Classes="card">
+            <StackPanel HorizontalAlignment="Center" Spacing="20">
+              <TextBlock Text="Oggi" FontSize="17" FontWeight="SemiBold" Foreground="#6B7280" HorizontalAlignment="Center" />
+              <Panel Width="240">
+                <views:Gauge Value="{Binding TodayHours}" Maximum="{Binding TodayTarget}" Stroke="#3B82F6" />
+                <TextBlock Text="{Binding TodayText}" FontSize="36" FontWeight="Bold" HorizontalAlignment="Center"
+                           VerticalAlignment="Bottom" />
+              </Panel>
+              <TextBlock Classes="hint" Text="{Binding TodayTargetText}" FontSize="13" HorizontalAlignment="Center" />
+            </StackPanel>
+          </Border>
+          <Border Classes="card" Grid.Column="1">
+            <StackPanel HorizontalAlignment="Center" Spacing="20">
+              <TextBlock Text="Settimana" FontSize="17" FontWeight="SemiBold" Foreground="#6B7280" HorizontalAlignment="Center" />
+              <Panel Width="240">
+                <views:Gauge Value="{Binding WeekHours}" Maximum="{Binding WeekTarget}" Stroke="#10B981" />
+                <TextBlock Text="{Binding WeekText}" FontSize="36" FontWeight="Bold" HorizontalAlignment="Center"
+                           VerticalAlignment="Bottom" />
+              </Panel>
+              <TextBlock Classes="hint" Text="{Binding WeekTargetText}" FontSize="13" HorizontalAlignment="Center" />
+            </StackPanel>
+          </Border>
+        </Grid>
 
-              <Label Classes="field" Grid.Row="2" Content="Ore previste" />
-              <Grid Grid.Row="2" Grid.Column="1" ColumnDefinitions="Auto,Auto,Auto,*,Auto" ColumnSpacing="10">
-                <NumericUpDown Value="{Binding PlannedHours}" Minimum="0" Maximum="999" Increment="0.5"
-                               FormatString="0.##" Width="165" PlaceholderText="facoltative" />
-                <TextBlock Grid.Column="1" Text="Entro il" VerticalAlignment="Center" Margin="12,0,0,0" />
-                <CalendarDatePicker Grid.Column="2" SelectedDate="{Binding DueDate}" PlaceholderText="facoltativa" Width="160" />
-                <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="8">
-                  <Button Content="Annulla modifica" Command="{Binding ResetFormCommand}" IsVisible="{Binding IsEditing}" />
-                  <Button Classes="accent" Content="{Binding SaveText}" Command="{Binding SaveCommand}" IsDefault="True" MinWidth="110" />
-                </StackPanel>
-              </Grid>
-            </Grid>
-
-            <TextBlock Classes="error" Text="{Binding Error}" Margin="0,8,0,0" TextWrapping="Wrap"
-                       IsVisible="{Binding Error, Converter={x:Static ObjectConverters.IsNotNull}}" />
-          </StackPanel>
-        </Border>
-
-        <!-- Elenco -->
-        <Border Classes="card" Grid.Row="1">
-          <Grid RowDefinitions="Auto,*,Auto">
-            <TextBlock Classes="title" Text="Da fare" />
-            <DataGrid x:Name="TodoGrid" Grid.Row="1" ItemsSource="{Binding Rows}" SelectedItem="{Binding Selected}"
-                      SelectionMode="Single" IsReadOnly="True" CanUserSortColumns="False"
-                      CanUserReorderColumns="False" GridLinesVisibility="Horizontal"
-                      HeadersVisibility="Column" BorderThickness="0">
-              <DataGrid.Styles>
-                <!-- Colori per stato: verde = fatto, giallo = in scadenza (testo nero) o scaduto (testo rosso). -->
-                <Style Selector="DataGridRow" x:DataType="local:TodoRow">
-                  <Setter Property="Background" Value="{Binding Background}" />
-                  <Setter Property="Foreground" Value="{Binding Foreground}" />
-                  <Setter Property="FontWeight" Value="{Binding Weight}" />
-                </Style>
-              </DataGrid.Styles>
-              <DataGrid.Columns>
-                <DataGridTextColumn Header="Nome" Binding="{Binding Name}" Width="160" x:DataType="local:TodoRow" />
-                <DataGridTextColumn Header="Previste" Binding="{Binding Planned}" Width="95" x:DataType="local:TodoRow" />
-                <DataGridTextColumn Header="Consuntivato" Binding="{Binding Logged}" Width="130" x:DataType="local:TodoRow" />
-                <DataGridTextColumn Header="Entro il" Binding="{Binding Due}" Width="115" x:DataType="local:TodoRow" />
-                <DataGridTextColumn Header="Descrizione" Binding="{Binding Description}" Width="*" x:DataType="local:TodoRow" />
-              </DataGrid.Columns>
-            </DataGrid>
-
-            <Grid Grid.Row="2" ColumnDefinitions="Auto,*" Margin="0,12,0,0">
-              <StackPanel Orientation="Horizontal" Spacing="8">
-                <Button Classes="accent" Content="Consuntiva…" Command="{Binding LogCommand}" />
-                <Button Content="Modifica" Command="{Binding EditCommand}" />
-                <Button Content="{Binding CompleteText}" Command="{Binding ToggleCompletedCommand}" MinWidth="100" />
-                <Button Content="Elimina" Command="{Binding DeleteCommand}" />
+        <Border Classes="card" Grid.Row="2">
+          <Grid RowDefinitions="Auto,*">
+            <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,20">
+              <StackPanel>
+                <TextBlock Classes="title" Text="{Binding BreakdownTitle}" />
+                <TextBlock Classes="subtitle" Text="Percentuale sul totale consuntivato della settimana" />
               </StackPanel>
-              <TextBlock Grid.Column="1" Text="{Binding Summary}" FontWeight="SemiBold"
-                         HorizontalAlignment="Right" VerticalAlignment="Center" />
+              <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Top">
+                <Button Classes="segment" Classes.on="{Binding ByProject}" Content="Progetto" Command="{Binding ShowProjectsCommand}" />
+                <Button Classes="segment" Classes.on="{Binding ByIssue}" Content="Issue" Command="{Binding ShowIssuesCommand}" />
+              </StackPanel>
             </Grid>
+            <TextBlock Grid.Row="1" Classes="hint" VerticalAlignment="Top" IsVisible="{Binding IsEmpty}"
+                       Text="Nessuna ora consuntivata in questa settimana." />
+            <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled">
+              <ItemsControl ItemsSource="{Binding Rows}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="local:BreakdownItem">
+                    <Grid ColumnDefinitions="90,260,*,90,70" Height="56">
+                      <TextBlock Text="{Binding Key}" FontSize="12" FontWeight="SemiBold" Foreground="#6B7280"
+                                 VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                      <TextBlock Grid.Column="1" Text="{Binding Label}" FontSize="15" VerticalAlignment="Center"
+                                 TextTrimming="CharacterEllipsis" Margin="0,0,20,0" ToolTip.Tip="{Binding Label}" />
+                      <views:BarMeter Grid.Column="2" Value="{Binding Fraction}" Fill="#3B82F6" Height="10" VerticalAlignment="Center" />
+                      <TextBlock Grid.Column="3" Text="{Binding Percent}" FontWeight="SemiBold" HorizontalAlignment="Right"
+                                 VerticalAlignment="Center" />
+                      <TextBlock Grid.Column="4" Text="{Binding Hours}" Foreground="#6B7280" HorizontalAlignment="Right"
+                                 VerticalAlignment="Center" />
+                    </Grid>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </ScrollViewer>
           </Grid>
         </Border>
       </Grid>
     </TabItem>
 
-    <TabItem Header="Consuntiva ore">
-      <Grid RowDefinitions="Auto,Auto,*" Margin="0,6,0,0" DataContext="{Binding Entry}" x:DataType="local:EntryViewModel">
-
-        <!-- Giorno -->
-        <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,0,0,10">
-          <Button Content="◀" Command="{Binding PreviousDayCommand}" ToolTip.Tip="Giorno precedente" />
-          <CalendarDatePicker SelectedDate="{Binding Day}" Width="170" />
-          <Button Content="▶" Command="{Binding NextDayCommand}" ToolTip.Tip="Giorno successivo" />
-          <Button Content="Oggi" Command="{Binding TodayCommand}" />
+    <!-- ============================================================ Todo -->
+    <TabItem Header="Todo">
+      <Grid RowDefinitions="Auto,Auto,*" Margin="40,32,40,32" DataContext="{Binding Todo}" x:DataType="local:TodoViewModel">
+        <StackPanel>
+          <TextBlock Classes="page-title" Text="Todo" />
+          <TextBlock Classes="page-subtitle" Text="Attività da svolgere e da consuntivare" />
         </StackPanel>
 
-        <!-- Attività -->
-        <Border Classes="card" Grid.Row="1" Margin="0,0,0,10">
-          <StackPanel>
-            <TextBlock Classes="title" Text="Attività" />
-            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="8">
-              <Label Classes="field" Grid.Row="0" Content="Ore" />
-              <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Spacing="10">
-                <NumericUpDown x:Name="HoursBox" Value="{Binding Hours}" Minimum="0" Maximum="24" Increment="0.5"
-                               FormatString="0.##" Width="130" />
-                <TextBlock Classes="hint" Text="es. 1,5 = un'ora e mezza" />
+        <!-- Nuovo todo -->
+        <Border Classes="card" Grid.Row="1" Margin="0,28,0,20">
+          <StackPanel Spacing="14">
+            <TextBlock Classes="title" Text="Nuovo todo" />
+            <Grid ColumnDefinitions="*,170" ColumnSpacing="20">
+              <StackPanel>
+                <TextBlock Classes="label" Text="Nome" />
+                <TextBox Text="{Binding Name}" PlaceholderText="es. Acme" />
               </StackPanel>
-
-              <Label Classes="field" Grid.Row="1" Content="Cliente" />
-              <AutoCompleteBox Grid.Row="1" Grid.Column="1" Text="{Binding Client}" ItemsSource="{Binding Clients}"
-                               FilterMode="StartsWithCaseSensitive" MinimumPrefixLength="0"
-                               PlaceholderText="Scegli o scrivi un cliente" />
-
-              <Label Classes="field" Grid.Row="2" Content="Nota" VerticalAlignment="Top" Margin="0,6,12,0" />
-              <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Note}" AcceptsReturn="True"
-                       TextWrapping="Wrap" Height="64" PlaceholderText="Cosa hai fatto" />
-
-              <Label Classes="field" Grid.Row="3" Content="Jira" IsVisible="{Binding JiraEnabled}" />
-              <Grid Grid.Row="3" Grid.Column="1" ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="8"
-                    IsVisible="{Binding JiraEnabled}">
-                <TextBlock Text="{Binding IssueText}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
-                           ToolTip.Tip="{Binding IssueText}"
-                           Classes.hint="{Binding !HasIssue}" FontWeight="{Binding IssueWeight}" />
-                <Button Grid.Column="1" Content="Scegli issue…" Command="{Binding ChooseIssueCommand}" />
-                <Button Grid.Column="2" Content="✕" Command="{Binding ClearIssueCommand}" IsVisible="{Binding HasIssue}"
-                        ToolTip.Tip="Togli il collegamento a Jira" />
-                <CheckBox Grid.Column="3" Content="Invia subito a Tempo" IsChecked="{Binding SendImmediately}"
-                          ToolTip.Tip="Se spento, le voci si inviano dopo con «Invia a Tempo» (qui sotto o nel report)" />
-              </Grid>
+              <StackPanel Grid.Column="1">
+                <TextBlock Classes="label" Text="Priorità" />
+                <ComboBox ItemsSource="{Binding PriorityNames}" SelectedIndex="{Binding PriorityIndex}" HorizontalAlignment="Stretch" />
+              </StackPanel>
             </Grid>
-
-            <Grid ColumnDefinitions="*,Auto" Margin="0,12,0,0">
-              <TextBlock Text="{Binding Message}" TextWrapping="Wrap" VerticalAlignment="Center" FontSize="12"
-                         Classes.error="{Binding MessageIsError}" Classes.hint="{Binding !MessageIsError}"
-                         IsVisible="{Binding Message, Converter={x:Static ObjectConverters.IsNotNull}}" />
-              <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
-                <Button Content="Non ricordarmelo oggi" Command="{Binding SkipTodayCommand}" />
+            <Grid ColumnDefinitions="*,170,170,Auto" ColumnSpacing="20">
+              <StackPanel>
+                <TextBlock Classes="label" Text="Descrizione" />
+                <TextBox x:Name="TodoDescription" Text="{Binding Description}" AcceptsReturn="True" TextWrapping="Wrap"
+                         MinHeight="64" MaxHeight="160" PlaceholderText="Cosa c'è da fare (anche su più righe, es. elenco con - )" />
+              </StackPanel>
+              <StackPanel Grid.Column="1">
+                <TextBlock Classes="label" Text="Ore previste" />
+                <NumericUpDown Value="{Binding PlannedHours}" Minimum="0" Maximum="999" Increment="0.5"
+                               FormatString="0.##" PlaceholderText="Facoltative" HorizontalAlignment="Stretch" />
+              </StackPanel>
+              <StackPanel Grid.Column="2">
+                <TextBlock Classes="label" Text="Entro il" />
+                <CalendarDatePicker SelectedDate="{Binding DueDate}" PlaceholderText="gg/mm/aaaa" HorizontalAlignment="Stretch" />
+              </StackPanel>
+              <StackPanel Grid.Column="3" VerticalAlignment="Top" Margin="0,25,0,0" Spacing="8">
+                <Button Classes="accent" Content="{Binding SaveText}" Command="{Binding SaveCommand}" IsDefault="True" MinWidth="140" />
                 <Button Content="Annulla modifica" Command="{Binding ResetFormCommand}" IsVisible="{Binding IsEditing}" />
-                <Button Classes="accent" Content="{Binding SaveText}" Command="{Binding SaveCommand}" IsDefault="True" MinWidth="110" />
               </StackPanel>
             </Grid>
+            <StackPanel Orientation="Horizontal" Spacing="12" IsVisible="{Binding JiraEnabled}">
+              <TextBlock Text="Jira" FontSize="13" FontWeight="SemiBold" Foreground="#4B5563" VerticalAlignment="Center" />
+              <TextBlock Text="{Binding IssueText}" VerticalAlignment="Center" MaxWidth="420" TextTrimming="CharacterEllipsis"
+                         ToolTip.Tip="{Binding IssueText}" />
+              <Button Content="Scegli issue…" Command="{Binding ChooseIssueCommand}" />
+              <Button Classes="square" Content="✕" Command="{Binding ClearIssueCommand}" IsVisible="{Binding HasIssue}"
+                      ToolTip.Tip="Togli il collegamento a Jira" />
+              <TextBlock Classes="hint" Text="consuntivando dal todo, le ore vanno subito su questa issue" />
+            </StackPanel>
+            <TextBlock Text="{Binding Message}" TextWrapping="Wrap" FontSize="13"
+                       Classes.error="{Binding MessageIsError}" Classes.hint="{Binding !MessageIsError}"
+                       IsVisible="{Binding Message, Converter={x:Static ObjectConverters.IsNotNull}}" />
+          </StackPanel>
+        </Border>
+
+        <!-- Elenco -->
+        <Border Classes="card" Grid.Row="2">
+          <Grid RowDefinitions="Auto,*,Auto">
+            <StackPanel Margin="0,0,0,16">
+              <TextBlock Classes="title" Text="Da fare" />
+              <TextBlock Classes="subtitle" Text="{Binding Summary}" />
+            </StackPanel>
+            <DataGrid x:Name="TodoGrid" Grid.Row="1" ItemsSource="{Binding Rows}" SelectedItem="{Binding Selected}"
+                      SelectionMode="Single" IsReadOnly="True" CanUserSortColumns="False" CanUserReorderColumns="False">
+              <DataGrid.Styles>
+                <Style Selector="DataGridRow" x:DataType="local:TodoRow">
+                  <Setter Property="Background" Value="{Binding Background}" />
+                  <Setter Property="Foreground" Value="{Binding Foreground}" />
+                </Style>
+              </DataGrid.Styles>
+              <DataGrid.Columns>
+                <DataGridTemplateColumn Header="NOME" Width="270">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate x:DataType="local:TodoRow">
+                      <!-- L'etichetta segue il nome nel testo, così va a capo con lui. -->
+                      <TextBlock FontWeight="{Binding NameWeight}" FontSize="{Binding NameSize}" TextWrapping="Wrap"
+                                 VerticalAlignment="Center" Margin="0,12">
+                        <Run Text="{Binding Name}" />
+                        <InlineUIContainer BaselineAlignment="Center">
+                          <Border Classes="badge" Margin="8,0,0,0" Background="{Binding BadgeBack}" IsVisible="{Binding HasBadge}">
+                            <TextBlock Text="{Binding Badge}" Foreground="{Binding BadgeFore}" />
+                          </Border>
+                        </InlineUIContainer>
+                      </TextBlock>
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTextColumn Header="PREVISTE" Binding="{Binding Planned}" Width="95" x:DataType="local:TodoRow" />
+                <DataGridTextColumn Header="CONS." Binding="{Binding Logged}" Width="85" x:DataType="local:TodoRow" />
+                <DataGridTemplateColumn Header="ENTRO IL" Width="115">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate x:DataType="local:TodoRow">
+                      <TextBlock Text="{Binding Due}" Foreground="{Binding DueForeground}" FontWeight="{Binding DueWeight}"
+                                 VerticalAlignment="Center" />
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="JIRA" Width="100">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate x:DataType="local:TodoRow">
+                      <TextBlock Text="{Binding JiraKey}" Foreground="#2563EB" FontWeight="SemiBold" VerticalAlignment="Center"
+                                 ToolTip.Tip="{Binding JiraTip}" />
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="DESCRIZIONE" Width="*">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate x:DataType="local:TodoRow">
+                      <TextBlock Classes="wrap" Text="{Binding Description}" Foreground="{Binding DescriptionForeground}" />
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+              </DataGrid.Columns>
+            </DataGrid>
+
+            <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="12" Margin="0,20,0,0">
+              <Button Classes="accent" Content="Consuntiva…" Command="{Binding LogCommand}" MinWidth="140" />
+              <Button Content="Modifica" Command="{Binding EditCommand}" MinWidth="110" />
+              <Button Content="{Binding CompleteText}" Command="{Binding ToggleCompletedCommand}" MinWidth="110" />
+              <Button Classes="danger" Content="Elimina" Command="{Binding DeleteCommand}" MinWidth="100" />
+            </StackPanel>
+          </Grid>
+        </Border>
+      </Grid>
+    </TabItem>
+
+    <!-- ============================================================ Consuntiva ore -->
+    <TabItem Header="Consuntiva ore">
+      <Grid RowDefinitions="Auto,Auto,Auto,*" Margin="40,32,40,32" DataContext="{Binding Entry}" x:DataType="local:EntryViewModel">
+        <!-- Titolo e, a destra, il giorno (accanto al titolo per lasciare più spazio alla tabella). -->
+        <Grid ColumnDefinitions="*,Auto">
+          <StackPanel>
+            <TextBlock Classes="page-title" Text="Consuntiva ore" />
+            <TextBlock Classes="page-subtitle" Text="Registra le ore lavorate e inviale a Tempo" />
+          </StackPanel>
+          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Bottom">
+            <Button Classes="square" Content="‹" FontSize="20" Command="{Binding PreviousDayCommand}" ToolTip.Tip="Giorno precedente" />
+            <CalendarDatePicker SelectedDate="{Binding Day}" Width="170" />
+            <Button Classes="square" Content="›" FontSize="20" Command="{Binding NextDayCommand}" ToolTip.Tip="Giorno successivo" />
+            <Button Content="Oggi" Command="{Binding TodayCommand}" MinWidth="86" />
+          </StackPanel>
+        </Grid>
+        <Panel Grid.Row="1" Height="24" />
+
+        <!-- Attività -->
+        <Border Classes="card" Grid.Row="2" Margin="0,0,0,20">
+          <StackPanel Spacing="14">
+            <TextBlock Classes="title" Text="Attività" />
+            <Grid ColumnDefinitions="150,*" ColumnSpacing="20">
+              <StackPanel>
+                <TextBlock Classes="label" Text="Ore" />
+                <NumericUpDown x:Name="HoursBox" Value="{Binding Hours}" Minimum="0" Maximum="24" Increment="0.5"
+                               FormatString="0.##" HorizontalAlignment="Stretch" />
+                <TextBlock Classes="hint" Text="es. 1,5 = un'ora e mezza" FontSize="11" Margin="0,6,0,0" />
+              </StackPanel>
+              <StackPanel Grid.Column="1">
+                <TextBlock Classes="label" Text="Cliente" />
+                <AutoCompleteBox Text="{Binding Client}" ItemsSource="{Binding Clients}"
+                                 FilterMode="StartsWithCaseSensitive" MinimumPrefixLength="0"
+                                 PlaceholderText="Scegli o scrivi un cliente" />
+              </StackPanel>
+            </Grid>
+            <StackPanel>
+              <TextBlock Classes="label" Text="Nota" />
+              <TextBox Text="{Binding Note}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="64" MaxHeight="140"
+                       PlaceholderText="Cosa hai fatto" />
+            </StackPanel>
+
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16" Margin="0,4,0,0">
+              <!-- A sinistra la issue Jira (o il messaggio se Jira è spento), a destra i pulsanti. -->
+              <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="12" IsVisible="{Binding JiraEnabled}">
+                <TextBlock Text="Jira" FontSize="13" FontWeight="SemiBold" Foreground="#4B5563" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="1" Text="{Binding IssueText}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                           ToolTip.Tip="{Binding IssueText}" Classes.hint="{Binding !HasIssue}" FontWeight="{Binding IssueWeight}" />
+                <Button Grid.Column="2" Content="Scegli issue…" Command="{Binding ChooseIssueCommand}" />
+                <Button Grid.Column="3" Classes="square" Content="✕" Command="{Binding ClearIssueCommand}" IsVisible="{Binding HasIssue}"
+                        ToolTip.Tip="Togli il collegamento a Jira" />
+              </Grid>
+              <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12">
+                <CheckBox Content="Invia subito a Tempo" IsChecked="{Binding SendImmediately}" IsVisible="{Binding JiraEnabled}"
+                          Margin="0,0,8,0"
+                          ToolTip.Tip="Se spento, le voci si inviano dopo con «Invia a Tempo» (qui sotto o nel report)" />
+                <Button Content="Non ricordarmelo oggi" Command="{Binding SkipTodayCommand}" />
+                <Button Content="Annulla" Command="{Binding ResetFormCommand}" IsVisible="{Binding IsEditing}"
+                        ToolTip.Tip="Annulla la modifica (Esc)" />
+                <Button Classes="accent" Content="{Binding SaveText}" Command="{Binding SaveCommand}" IsDefault="True" MinWidth="140" />
+              </StackPanel>
+            </Grid>
+            <TextBlock Text="{Binding Message}" TextWrapping="Wrap" FontSize="13"
+                       Classes.error="{Binding MessageIsError}" Classes.hint="{Binding !MessageIsError}"
+                       IsVisible="{Binding Message, Converter={x:Static ObjectConverters.IsNotNull}}" />
           </StackPanel>
         </Border>
 
         <!-- Ore del giorno -->
-        <Border Classes="card" Grid.Row="2">
+        <Border Classes="card" Grid.Row="3">
           <Grid RowDefinitions="Auto,*,Auto">
-            <TextBlock Classes="title" Text="Ore registrate nel giorno" />
+            <StackPanel Margin="0,0,0,16">
+              <TextBlock Classes="title" Text="Ore registrate nel giorno" />
+              <TextBlock Classes="subtitle" Text="{Binding DayTitle}" />
+            </StackPanel>
             <DataGrid x:Name="EntryGrid" Grid.Row="1" ItemsSource="{Binding Rows}" SelectedItem="{Binding Selected}"
-                      SelectionMode="Single" IsReadOnly="True" CanUserSortColumns="False"
-                      CanUserReorderColumns="False" GridLinesVisibility="Horizontal"
-                      HeadersVisibility="Column" BorderThickness="0">
+                      SelectionMode="Single" IsReadOnly="True" CanUserSortColumns="False" CanUserReorderColumns="False">
               <DataGrid.Columns>
-                <DataGridTextColumn Header="Ore" Binding="{Binding Hours}" Width="70" x:DataType="local:EntryRow" />
-                <DataGridTextColumn Header="Cliente" Binding="{Binding Client}" Width="180" x:DataType="local:EntryRow" />
-                <DataGridTextColumn Header="Jira" Binding="{Binding Jira}" Width="150" x:DataType="local:EntryRow" />
-                <DataGridTextColumn Header="Nota" Binding="{Binding Note}" Width="*" x:DataType="local:EntryRow" />
+                <DataGridTemplateColumn Header="ORE" Width="80">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate x:DataType="local:EntryRow">
+                      <TextBlock Text="{Binding Hours}" FontWeight="SemiBold" VerticalAlignment="Center" />
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="CLIENTE" Width="260">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate x:DataType="local:EntryRow">
+                      <TextBlock Classes="wrap" Text="{Binding Client}" />
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="JIRA" Width="200">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate x:DataType="local:EntryRow">
+                      <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding JiraKey}" Foreground="#2563EB" FontWeight="SemiBold" VerticalAlignment="Center"
+                                   ToolTip.Tip="{Binding JiraTip}" />
+                        <Border Classes="badge" Background="{Binding StatusBack}" IsVisible="{Binding HasStatus}">
+                          <TextBlock Text="{Binding Status}" Foreground="{Binding StatusFore}" />
+                        </Border>
+                      </StackPanel>
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="NOTA" Width="*">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate x:DataType="local:EntryRow">
+                      <TextBlock Classes="wrap" Text="{Binding Note}" Foreground="#4B5563" />
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
               </DataGrid.Columns>
             </DataGrid>
 
-            <Grid Grid.Row="2" ColumnDefinitions="Auto,*" Margin="0,12,0,0">
-              <StackPanel Orientation="Horizontal" Spacing="8">
-                <Button Content="Modifica" Command="{Binding EditCommand}" />
-                <Button Content="Elimina" Command="{Binding DeleteCommand}" />
+            <Grid Grid.Row="2" ColumnDefinitions="Auto,*" Margin="0,20,0,0">
+              <StackPanel Orientation="Horizontal" Spacing="12">
+                <Button Content="Modifica" Command="{Binding EditCommand}" MinWidth="110" />
+                <Button Classes="danger" Content="Elimina" Command="{Binding DeleteCommand}" MinWidth="100" />
                 <Button Content="Invia a Tempo" Command="{Binding SendSelectedCommand}" IsVisible="{Binding JiraEnabled}" />
+                <Button Content="Importa da Jira" Command="{Binding ImportCommand}" IsVisible="{Binding JiraEnabled}"
+                        ToolTip.Tip="Porta qui le ore del giorno registrate su Jira/Tempo, anche dal web" />
               </StackPanel>
-              <TextBlock Grid.Column="1" Text="{Binding Total}" Foreground="{Binding TotalBrush}" FontWeight="Bold"
+              <TextBlock Grid.Column="1" Classes="total" Text="{Binding Total}" Foreground="{Binding TotalBrush}"
                          HorizontalAlignment="Right" VerticalAlignment="Center" />
             </Grid>
           </Grid>

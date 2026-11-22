@@ -34,15 +34,20 @@ public sealed class LogDialog : Window
             _ => "nessuna stima indicata",
         };
 
+        Background = Brushes.White;
         var grid = new Grid
         {
             ColumnDefinitions = new ColumnDefinitions("Auto,*"),
-            RowDefinitions = new RowDefinitions("Auto,Auto,Auto,Auto"),
-            RowSpacing = 10, ColumnSpacing = 12,
+            RowDefinitions = new RowDefinitions("Auto,Auto,Auto,Auto,Auto"),
+            RowSpacing = 14, ColumnSpacing = 16,
         };
         void Row(int row, string label, Control content)
         {
-            var l = new TextBlock { Text = label, VerticalAlignment = VerticalAlignment.Center };
+            var l = new TextBlock
+            {
+                Text = label, VerticalAlignment = VerticalAlignment.Center, FontWeight = FontWeight.SemiBold, FontSize = 13,
+                Foreground = new SolidColorBrush(Color.FromRgb(75, 85, 99)),
+            };
             Grid.SetRow(l, row);
             Grid.SetRow(content, row);
             Grid.SetColumn(content, 1);
@@ -55,12 +60,28 @@ public sealed class LogDialog : Window
             Children = { day, new Button { Content = "Oggi", Command = new Relay(() => day.SelectedDate = DateTime.Today) } },
         });
         Row(1, "Cliente", new TextBlock { Text = todo.Name, FontWeight = FontWeight.SemiBold });
-        Row(2, "Nota", new TextBlock { Text = todo.Description, TextWrapping = TextWrapping.Wrap, MaxWidth = 360 });
+        Row(2, "Nota", new TextBlock { Text = todo.Description, TextWrapping = TextWrapping.Wrap, MaxWidth = 380 });
         Row(3, "Ore", new StackPanel
         {
             Orientation = Orientation.Horizontal, Spacing = 10,
             Children = { hours, new TextBlock { Text = hint, Classes = { "hint" } } },
         });
+        if (todo.Jira is { } issue)
+        {
+            Row(4, "Jira", new StackPanel
+            {
+                Spacing = 2,
+                Children =
+                {
+                    new TextBlock
+                    {
+                        Text = issue.Display, FontWeight = FontWeight.SemiBold, MaxWidth = 380, TextTrimming = TextTrimming.CharacterEllipsis,
+                        Foreground = new SolidColorBrush(Color.FromRgb(37, 99, 235)),
+                    },
+                    new TextBlock { Text = "le ore saranno inviate subito a Tempo", Classes = { "hint" } },
+                },
+            });
+        }
 
         var ok = new Button { Content = "Registra", Classes = { "accent" }, IsDefault = true, MinWidth = 100 };
         ok.Click += (_, _) =>
@@ -78,7 +99,7 @@ public sealed class LogDialog : Window
 
         Content = new StackPanel
         {
-            Margin = new Thickness(20), Spacing = 14,
+            Margin = new Thickness(28, 24), Spacing = 18,
             Children =
             {
                 grid,
@@ -104,7 +125,7 @@ public static class ConfirmDialog
             Title = "Consuntivo Ore",
             Icon = AppAssets.Icon,
             SizeToContent = SizeToContent.WidthAndHeight,
-            CanResize = false,
+            CanResize = false, Background = Brushes.White,
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
         };
         var yes = new Button { Content = "Sì", Classes = { "accent" }, MinWidth = 80 };
@@ -139,7 +160,7 @@ public static class ChoiceDialog
             Title = "Consuntivo Ore",
             Icon = AppAssets.Icon,
             SizeToContent = SizeToContent.WidthAndHeight,
-            CanResize = false,
+            CanResize = false, Background = Brushes.White,
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
         };
         var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Right };
@@ -170,7 +191,7 @@ public static class MessageDialog
             Title = "Consuntivo Ore",
             Icon = AppAssets.Icon,
             SizeToContent = SizeToContent.WidthAndHeight,
-            CanResize = false,
+            CanResize = false, Background = Brushes.White,
             WindowStartupLocation = owner is null ? WindowStartupLocation.CenterScreen : WindowStartupLocation.CenterOwner,
         };
         var ok = new Button { Content = "OK", Classes = { "accent" }, IsDefault = true, IsCancel = true, MinWidth = 80 };

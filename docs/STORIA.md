@@ -202,6 +202,55 @@ https://github.com/Steccolo/ConsuntivoOre/releases/tag/v1.5.0 con `ConsuntivoOre
 
 ---
 
+## 2.0.0 — Dashboard, priorità, importazione da Jira, nuova grafica (22/11/2026, branch `versione-2.0`)
+
+**Richieste** (in `docs/improvement.md`, mockup Penpot in `docs/gui-screenshot/`)
+
+1. Todo: descrizione su più righe visibile com'è scritta (anche elenchi puntati); priorità bassa/media/alta,
+   con il gruppo di una priorità che compare solo quando c'è almeno un todo.
+2. All'avvio, se collegata a Jira, l'app importa le ore della giornata registrate sul web.
+3. Dashboard come vista iniziale: indicatori a semicerchio per oggi e per la settimana, percentuali per Jira.
+4. Impostazioni: inizio e fine della giornata lavorativa.
+5. Valutare SQLite (indicizzato, compresso, cifrato) al posto dei JSON.
+6. Aggiunta durante la discussione: nel todo si può indicare la issue Jira; consuntivando dal todo la voce va
+   subito su Tempo e compare tra i consuntivi come "Inviato".
+7. Font: 700 titolo di pagina (32 px) e totale (16 px); 600 titoli delle card, etichette, bottoni, scheda attiva,
+   intestazioni delle tabelle; 400 il resto.
+
+**Decisioni prese con l'utente**
+
+- Importazione: **il web vince** sulle voci già inviate e non modificate (si aggiornano o, se cancellate su Tempo,
+  si tolgono); le modifiche locali non ancora inviate restano. Le voci mancanti si creano già "Inviato".
+- Fine giornata: serve **sia** come orario del promemoria **sia** per le ore previste (fine − inizio − pausa).
+  Le impostazioni vecchie si convertono senza cambiare nulla: inizio = ora della prima voce su Tempo,
+  fine = orario del promemoria, pausa = quanto serve per riavere le stesse ore previste.
+- Dashboard: percentuali **per progetto e per issue**, con un selettore; le ore senza Jira in fondo ("Senza Jira").
+- Grafica: si resta su Avalonia (togliere tutto il tema avrebbe voluto dire riscrivere anche calendario, menu a
+  tendina, campo numerico: 2–3 volte il lavoro e codice non collaudato). **Via di mezzo** scelta dall'utente:
+  da zero bottoni, schede, card, etichette, testi, indicatori (`Views/Meters.cs`), intestazioni e celle delle
+  tabelle; Fluent ricolorato per campi, date, orari, menu, caselle e righe/scorrimento del DataGrid.
+  Il DataGrid resta perché dà gratis colonne ridimensionabili e copia della cella (l'utente aveva chiesto perché
+  "si dovesse perdere il trascinamento": non si perde).
+- Gruppi di priorità come righe d'intestazione nella tabella (come i giorni nel report), non con il raggruppamento
+  interno del DataGrid, che non si può controllare (il suo tema è compilato nella libreria).
+- **SQLite abbandonato** (compressione e cifratura comprese): con ~2.500 voci l'anno il JSON resta sotto 1 MB/anno;
+  SQLite gratuito non comprime; la cifratura avrebbe legato i dati all'utente Windows (reinstallando si perdono
+  anche i backup). Per proteggere i file: BitLocker.
+- Carattere: Inter (già incluso) con i pesi richiesti; il mockup usa Source Sans, si può cambiare in un punto solo.
+- Giorno della scheda Consuntiva spostato a destra del titolo (nel mockup è sotto) per lasciare più righe alla tabella.
+
+**Problemi**
+
+- `Smart App Control` (attivo sul PC dell'utente) ha bloccato a metà lavoro la DLL di sviluppo appena compilata
+  (evento CodeIntegrity 3077): le ultime correzioni grafiche non sono state viste negli screenshot. Le prime
+  esecuzioni della stessa sessione erano passate: Windows decide file per file.
+
+**Non verificato**: importazione con un Tempo reale (provata solo con il server finto dei test); aspetto finale dopo
+gli ultimi ritocchi (riga Jira della scheda Consuntiva, nome del todo con l'etichetta accanto, altezza finestra);
+calendario e menu a tendina aperti (popup non catturati negli screenshot).
+
+---
+
 ## Da verificare / idee aperte
 
 - **Jira/Tempo con un account reale** (vedi 1.5.0). Idee: issue predefinita per todo, attributi di lavoro Tempo.

@@ -23,6 +23,20 @@ public static class Fmt
 
     public static string DayLong(DateOnly day) => $"{DayName(day.DayOfWeek)} {day.ToString("dd/MM", It)}";
 
+    /// <summary>"Venerdì 20/11/2026".</summary>
+    public static string DayFull(DateOnly day) => $"{DayName(day.DayOfWeek)} {Date(day)}";
+
+    public static string Priority(TodoPriority p) => p switch
+    {
+        TodoPriority.High => "Alta",
+        TodoPriority.Low => "Bassa",
+        _ => "Media",
+    };
+
+    /// <summary>Percentuale con al massimo un decimale: 33,3% · 10%.</summary>
+    public static string Percent(decimal part, decimal total) =>
+        total > 0 ? (part / total * 100).ToString("0.#", It) + "%" : "";
+
     public static DateOnly WeekStart(DateOnly day) => day.AddDays(-MondayIndex(day.DayOfWeek));
 
     /// <summary>Lunedì = 0 ... Domenica = 6.</summary>

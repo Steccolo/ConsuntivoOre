@@ -30,6 +30,7 @@ internal sealed class AppController
         _jira = new JiraService(store, Secrets.For(store));
 
         var menu = new NativeMenu();
+        AddItem(menu, "Dashboard", () => ShowMain(MainTab.Dashboard));
         AddItem(menu, "Consuntiva ore", () => ShowEntry());
         AddItem(menu, "Todo", () => ShowMain(MainTab.Todo));
         AddItem(menu, "Report settimanale", () => ShowReport());
@@ -61,8 +62,27 @@ internal sealed class AppController
         bool launchedByToast = Toast.WasLaunchedByClick;
         Toast.Initialize(command => Dispatcher.UIThread.Post(() => OnToastClicked(command)));
 
-        // All'avvio (anche con il sistema) la finestra si apre sulla scheda dei todo.
-        if (!launchedByToast) ShowMain(MainTab.Todo);
+        // All'avvio (anche con il sistema) la finestra si apre sulla dashboard.
+        if (!launchedByToast) ShowMain(MainTab.Dashboard);
+
+        _ = ImportTodayAsync();
+    }
+
+    /// <summary>
+    /// All'avvio, se Jira è collegato, porta in locale le ore di oggi registrate su Jira/Tempo (anche dal web).
+    /// Senza rete o con un errore non disturba: lo scrive nel log e si può riprovare con "Importa da Jira".
+    /// </summary>
+    private async Task ImportTodayAsync()
+    {
+        if (!_jira.CanUseTempo) return;
+        try
+        {
+            await _jira.ImportAsync(Today, Today);
+        }
+        catch (Exception ex) when (ex is JiraException || DataStore.IsFileError(ex))
+        {
+            Log.Error(ex);
+        }
     }
 
     private static DateOnly Today => DateOnly.FromDateTime(DateTime.Now);
@@ -81,12 +101,13 @@ internal sealed class AppController
     {
         if (_main is null)
         {
-            CreateMain(tab ?? MainTab.Todo);
+            CreateMain(tab ?? MainTab.Dashboard);
         }
         else
         {
             if (!_main.ViewModel.Entry.HasUnsavedInput) _main.ViewModel.Entry.MoveToTodayIfStale();
             if (tab is { } t) _main.ShowTab(t);
+            _main.ViewModel.Dashboard.Refresh(); // il giorno potrebbe essere cambiato a finestra aperta
         }
         BringToFront(_main!);
     }
@@ -169,7 +190,7 @@ internal sealed class AppController
         decimal target = _store.Settings.DailyTargetHours;
         if (target > 0 && _store.HoursOn(Today) >= target) Toast.Remove(ReminderTag);
 
-        _main?.ViewModel.Entry.Reload(); // il totale dipende anche dalle ore previste
+        _main?.ViewModel.Reload(); // totali, dashboard e parti Jira dipendono anche dalle impostazioni
         _report?.ViewModel.Refresh();
     }
 

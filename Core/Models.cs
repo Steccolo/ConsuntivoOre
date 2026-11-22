@@ -31,14 +31,26 @@ public sealed class TimeEntry
     public bool NeedsTempoSync => JiraStatus is JiraStatus.ToSend or JiraStatus.Changed;
 }
 
+public enum TodoPriority
+{
+    Low,
+    Medium,
+    High,
+}
+
 public sealed class TodoItem
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public string Name { get; set; } = "";
     public decimal PlannedHours { get; set; }
+    /// <summary>Anche su più righe (elenchi puntati compresi): si mostra come è stata scritta.</summary>
     public string Description { get; set; } = "";
     /// <summary>Data entro cui completare il task (facoltativa).</summary>
     public DateOnly? DueDate { get; set; }
+    /// <summary>I todo delle versioni precedenti non l'hanno: valgono "media".</summary>
+    public TodoPriority Priority { get; set; } = TodoPriority.Medium;
+    /// <summary>Issue di Jira del task: consuntivando dal todo le ore vanno lì (facoltativa).</summary>
+    public JiraIssueRef? Jira { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.Now;
     /// <summary>Valorizzata quando il task è segnato come completato.</summary>
     public DateTime? CompletedAt { get; set; }
@@ -51,12 +63,26 @@ public sealed class AppSettings
 {
     public int SchemaVersion { get; set; } = DataStore.CurrentSchemaVersion;
 
+    /// <summary>Inizio della giornata lavorativa: su Tempo le voci del giorno partono da qui.</summary>
+    public TimeOnly? WorkStart { get; set; }
+    /// <summary>Fine della giornata lavorativa: è anche l'orario del promemoria.</summary>
+    public TimeOnly? WorkEnd { get; set; }
+    /// <summary>Pausa (minuti) tolta dalla giornata per calcolare le ore previste.</summary>
+    public int? BreakMinutes { get; set; }
+
+    [System.Text.Json.Serialization.JsonIgnore]
+    public TimeOnly DayStart => WorkStart ?? new TimeOnly(9, 0);
+    [System.Text.Json.Serialization.JsonIgnore]
+    public TimeOnly DayEnd => WorkEnd ?? ReminderTime;
+
     public bool ReminderEnabled { get; set; } = true;
+    /// <summary>Uguale alla fine della giornata (ricalcolato da <see cref="Normalize"/>); resta per i dati vecchi.</summary>
     public TimeOnly ReminderTime { get; set; } = new(17, 30);
     public List<DayOfWeek> ReminderDays { get; set; } =
         [DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday, DayOfWeek.Friday];
     /// <summary>Ripete il promemoria ogni N minuti finché non si raggiungono le ore previste (0 = mai).</summary>
     public int ReminderRepeatMinutes { get; set; } = 30;
+    /// <summary>Ore previste al giorno = fine − inizio − pausa (ricalcolate da <see cref="Normalize"/>).</summary>
     public decimal DailyTargetHours { get; set; } = 8;
 
     /// <summary>Giorni che contano per le ore settimanali previste nel report.</summary>
@@ -87,6 +113,36 @@ public sealed class AppSettings
         WorkDays = (WorkDays ?? []).Distinct().ToList();
         ReminderRepeatMinutes = Math.Clamp(ReminderRepeatMinutes, 0, 240);
         DailyTargetHours = Math.Clamp(DailyTargetHours, 0, 24);
+        NormalizeWorkDay();
+    }
+
+    /// <summary>
+    /// Inizio, fine e pausa decidono orario del promemoria e ore previste. Con le impostazioni delle versioni
+    /// precedenti (senza questi campi) si ricavano da quelle vecchie, in modo che nulla cambi:
+    /// inizio = ora della prima voce su Tempo, fine = orario del promemoria, pausa = quanto serve per le ore previste.
+    /// </summary>
+    private void NormalizeWorkDay()
+    {
+        var start = WorkStart ?? Jira.DayStart;
+        var end = WorkEnd ?? ReminderTime;
+        if (end < start) end = start;
+        int span = (int)(end - start).TotalMinutes;
+        int pause = BreakMinutes ?? span - (int)Math.Round(DailyTargetHours * 60, MidpointRounding.AwayFromZero);
+
+        WorkStart = start;
+        WorkEnd = end;
+        BreakMinutes = Math.Clamp(pause, 0, span);
+        ReminderTime = end;
+        DailyTargetHours = Math.Round((span - BreakMinutes.Value) / 60m, 2);
+        // Così una versione precedente, riaperta su questi dati, usa lo stesso inizio.
+        Jira.DayStart = start;
+    }
+
+    /// <summary>Ore previste per inizio, fine e pausa indicati (es. nel form delle impostazioni).</summary>
+    public static decimal TargetHours(TimeOnly start, TimeOnly end, int breakMinutes)
+    {
+        int span = end > start ? (int)(end - start).TotalMinutes : 0;
+        return Math.Round(Math.Max(0, span - Math.Max(0, breakMinutes)) / 60m, 2);
     }
 }
 

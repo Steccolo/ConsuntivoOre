@@ -13,6 +13,10 @@ public sealed class JiraIssueRef
 
     [JsonIgnore]
     public string Display => Summary.Length > 0 ? $"{Key} — {Summary}" : Key;
+
+    /// <summary>Chiave del progetto ricavata da quella della issue: "ABC-12" → "ABC".</summary>
+    [JsonIgnore]
+    public string ProjectKey => Key.LastIndexOf('-') is > 0 and var i ? Key[..i] : Key;
 }
 
 /// <summary>Ultimo invio riuscito a Tempo: serve a capire se la voce è cambiata dopo l'invio.</summary>

@@ -108,7 +108,8 @@ public sealed class DataStoreTests : IDisposable
         var s = new DataStore(_dir).Settings;
         Assert.Empty(s.ReminderDays);
         Assert.Equal(0, s.ReminderRepeatMinutes);
-        Assert.Equal(24, s.DailyTargetHours);
+        // Dalla 2.0 le ore previste non superano la giornata (9:00–17:30 predefinita).
+        Assert.Equal(8.5m, s.DailyTargetHours);
     }
 
     [Fact]

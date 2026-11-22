@@ -54,11 +54,12 @@ Program.cs          Avvio: cultura it-IT, --startup, --uninstall-notifications, 
 App.axaml(.cs)      Tema Fluent (chiaro), stili comuni (card, hint, error, DataGrid), caricamento dati
 AppController.cs    Icona nell'area di notifica, timer (20 s), promemoria/report, notifiche, apertura finestre
 Screenshots.cs      Modalità --screenshot (Avalonia.Headless)
-Core/               Libreria senza UI: modelli, DataStore (JSON), Scheduler, ReportBuilder, Fmt, Log
+Core/               Libreria senza UI: modelli, DataStore (JSON), Scheduler, ReportBuilder, Dashboard, Fmt, Log
 Core/Jira/          JiraClient (Jira Cloud REST v3 + Tempo API v4), JiraService (invio/sync), CredentialStore
 Platform/           Toast (Windows: toolkit UWP; Linux: notify-send), Autostart, SingleInstance, Secrets (DPAPI)
-ViewModels/         MVVM con CommunityToolkit.Mvvm: Todo, Entry (consuntiva), Report, Main
-Views/              Finestre XAML: MainWindow (schede Todo/Consuntiva), ReportWindow, SettingsWindow, dialoghi
+ViewModels/         MVVM con CommunityToolkit.Mvvm: Dashboard, Todo, Entry (consuntiva), Report, Main
+Views/              Finestre XAML: MainWindow (schede Dashboard/Todo/Consuntiva), ReportWindow, SettingsWindow,
+                    dialoghi, Meters.cs (indicatore a semicerchio e barra, disegnati a mano)
 tests/              xUnit su Core
 installer/          Inno Setup (AppMutex=ConsuntivoOreMutex, voce Run, --uninstall-notifications)
 .github/workflows/  CI su windows-latest: test, build.ps1, release sui tag v*
@@ -89,6 +90,19 @@ Lo `Scheduler` è puro (nessun effetto collaterale): ogni nuova regola dei prome
 - Stato della voce calcolato da `TimeEntry.Jira` + `TimeEntry.Tempo` (copia dei dati inviati): niente flag da tenere
   allineati. Ogni invio passa da `JiraService.SyncAsync` (lucchetto contro doppi invii); i test usano un
   `HttpMessageHandler` finto (`JiraTests`), nessuna chiamata reale.
+
+## Grafica (dalla 2.0)
+
+- Riferimento: mockup in `docs/gui-screenshot/*.svg` (per vederli: Edge headless `--screenshot`, i PNG si leggono).
+- In `App.axaml` sono **disegnati da zero** (ControlTheme/template nostri): Button (classi `accent`, `danger`,
+  `square`, `segment`+`on`), TabControl/TabItem, intestazioni e celle del DataGrid, card, etichette (`Border.badge`),
+  testi (`page-title`, `title`, `label`, `hint`, `total`...). **Fluent solo ricolorato** (risorse `TextControl*`,
+  `ComboBox*`, `CalendarDatePicker*`): campi, numeri, date, orari, menu, caselle, righe e scorrimento del DataGrid.
+- Il ControlTheme `{x:Type Button}` vale anche per i Button dentro i controlli Fluent che non hanno un tema proprio:
+  se un controllo Fluent appare strano, controllare quello per primo.
+- Pesi del carattere (richiesta dell'utente): 700 titolo di pagina e totale; 600 titoli delle card, etichette,
+  bottoni, scheda attiva, intestazioni; 400 il resto.
+- Gruppi (priorità dei todo, giorni del report): righe d'intestazione nell'elenco, non il raggruppamento del DataGrid.
 
 ## Insidie note (già incontrate)
 
@@ -123,6 +137,9 @@ Lo `Scheduler` è puro (nessun effetto collaterale): ogni nuova regola dei prome
 
 - `dotnet run -f net10.0-windows10.0.17763.0` usa i **dati reali** in `%APPDATA%\ConsuntivoOre`: fare una copia
   della cartella prima di esperimenti rischiosi. In Debug l'avvio automatico non tocca il registro.
+- **Smart App Control è attivo**: può bloccare l'exe/DLL appena compilati (`FileLoadException 0x800711C7`,
+  evento CodeIntegrity 3077), anche `dotnet run -- --screenshot`. Non aggirarlo: dirlo all'utente; i test di Core
+  girano comunque.
 - Sul PC dell'utente **Inno Setup non è installato (per scelta)**: `build.ps1` fallisce, quindi si genera solo l'exe
   con il `dotnet publish` manuale; l'installer lo produce la CI al tag.
 - **`git` non è nel PATH**: usare `& "C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\CommonExtensions\Microsoft\TeamFoundation\Team Explorer\Git\cmd\git.exe"`.

@@ -14,6 +14,20 @@ public sealed record SyncResult(int Sent, int Removed, IReadOnlyList<string> Err
     }
 }
 
+public sealed record ImportResult(int Added, int Updated, int Removed)
+{
+    public bool Changed => Added + Updated + Removed > 0;
+
+    public string Summary()
+    {
+        var parts = new List<string>();
+        if (Added > 0) parts.Add(Added == 1 ? "1 voce importata da Jira" : $"{Added} voci importate da Jira");
+        if (Updated > 0) parts.Add(Updated == 1 ? "1 aggiornata" : $"{Updated} aggiornate");
+        if (Removed > 0) parts.Add(Removed == 1 ? "1 tolta perché cancellata su Tempo" : $"{Removed} tolte perché cancellate su Tempo");
+        return parts.Count == 0 ? "Già allineato con Jira." : string.Join(", ", parts) + ".";
+    }
+}
+
 /// <summary>
 /// Collegamento con Jira/Tempo usato dall'interfaccia: tiene credenziali e client, invia le voci
 /// e registra l'esito nel <see cref="DataStore"/>. Va usato dal thread dell'interfaccia (come il DataStore).
@@ -109,6 +123,89 @@ public sealed class JiraService(DataStore store, CredentialStore credentials, Ht
         return new SyncResult(sent, removed, errors);
     }
 
+    /// <summary>Il token di Tempo c'è: si possono importare e inviare le ore.</summary>
+    public bool CanUseTempo => IsEnabled && Credentials.TempoToken.Trim().Length > 0;
+
+    /// <summary>
+    /// Porta in locale i miei worklog di Tempo dei giorni indicati. Il web vince sulle voci già inviate e non
+    /// modificate: si aggiornano, o si tolgono se su Tempo non ci sono più. Le voci con modifiche locali non ancora
+    /// inviate restano come sono. I worklog che in locale mancano diventano voci nuove, già "inviate".
+    /// </summary>
+    public async Task<ImportResult> ImportAsync(DateOnly from, DateOnly to, CancellationToken ct = default)
+    {
+        await _lock.WaitAsync(ct);
+        try
+        {
+            var client = Client;
+            var remote = await client.MyWorklogsAsync(from, to, ct);
+            var local = store.EntriesBetween(from, to);
+            var byWorklog = store.EntriesBetween(DateOnly.MinValue, DateOnly.MaxValue)
+                .Where(e => e.Tempo is not null)
+                .GroupBy(e => e.Tempo!.WorklogId)
+                .ToDictionary(g => g.Key, g => g.First());
+
+            // Dati delle issue solo per quelle che servono (voci nuove o spostate su un'altra issue).
+            var needed = remote.Where(w => !byWorklog.TryGetValue(w.WorklogId, out var e) || e.Jira?.Id != w.IssueId)
+                               .Select(w => w.IssueId).Distinct().ToList();
+            var issues = needed.Count == 0
+                ? new Dictionary<long, JiraIssueRef>()
+                : (await client.IssuesByIdAsync(needed, ct)).ToDictionary(i => i.Id);
+            JiraIssueRef IssueFor(long id) =>
+                issues.TryGetValue(id, out var issue) ? issue : new JiraIssueRef { Id = id, Key = $"#{id}" };
+
+            int added = 0, updated = 0, removed = 0;
+            var now = DateTime.Now;
+            foreach (var w in remote)
+            {
+                if (byWorklog.TryGetValue(w.WorklogId, out var entry))
+                {
+                    if (entry.JiraStatus != JiraStatus.Sent || SameAsRemote(entry, w)) continue;
+                    var jira = entry.Jira?.Id == w.IssueId ? entry.Jira! : IssueFor(w.IssueId);
+                    decimal hours = TempoWorklog.ToSeconds(entry.Hours) == w.Seconds ? entry.Hours : HoursOf(w.Seconds);
+                    string note = TempoWorklog.DescriptionFor(entry) == w.Description ? entry.Note : w.Description;
+                    var sync = new TempoSync { WorklogId = w.WorklogId, IssueId = jira.Id, Date = w.Date, Hours = hours, Note = note, SentAt = now };
+                    store.ApplyRemote(entry.Id, w.Date, hours, note, jira, sync);
+                    updated++;
+                }
+                else
+                {
+                    var jira = IssueFor(w.IssueId);
+                    var created = new TimeEntry
+                    {
+                        Date = w.Date,
+                        Hours = HoursOf(w.Seconds),
+                        Client = jira.ProjectName.Length > 0 ? jira.ProjectName : jira.ProjectKey,
+                        Note = w.Description,
+                        Jira = jira,
+                        // Nell'elenco del giorno compare nell'ordine in cui è su Tempo.
+                        CreatedAt = w.Date.ToDateTime(w.StartTime ?? TimeOnly.MinValue),
+                    };
+                    created.Tempo = TempoSync.Of(created, w.WorklogId, now);
+                    store.Add(created);
+                    added++;
+                }
+            }
+
+            var remoteIds = remote.Select(w => w.WorklogId).ToHashSet();
+            foreach (var entry in local.Where(e => e.Tempo is { } t && !remoteIds.Contains(t.WorklogId) && e.JiraStatus == JiraStatus.Sent))
+            {
+                store.Delete(entry.Id);
+                removed++;
+            }
+            return new ImportResult(added, updated, removed);
+        }
+        finally
+        {
+            _lock.Release();
+        }
+    }
+
+    private static decimal HoursOf(int seconds) => Math.Round(seconds / 3600m, 2);
+
+    private static bool SameAsRemote(TimeEntry e, TempoRemoteWorklog w) =>
+        e.Date == w.Date && e.Jira?.Id == w.IssueId && TempoWorklog.ToSeconds(e.Hours) == w.Seconds &&
+        TempoWorklog.DescriptionFor(e) == w.Description;
+
     /// <summary>Prima di eliminare una voce in locale: la toglie da Tempo.</summary>
     public async Task DeleteRemoteAsync(TimeEntry entry, CancellationToken ct = default)
     {
@@ -141,7 +238,7 @@ public sealed class JiraService(DataStore store, CredentialStore credentials, Ht
         if (seconds <= 0) throw new JiraException("ore non valide.");
         var me = await client.MyselfAsync(ct);
         var worklog = new TempoWorklog(me.AccountId, issue.Id, entry.Date,
-            StartTime(store.EntriesBetween(entry.Date, entry.Date), entry, Settings.DayStart),
+            StartTime(store.EntriesBetween(entry.Date, entry.Date), entry, store.Settings.DayStart),
             seconds, TempoWorklog.DescriptionFor(entry));
 
         snapshot.WorklogId = entry.Tempo is { } old

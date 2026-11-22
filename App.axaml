@@ -2,47 +2,344 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="ConsuntivoOre.App"
              RequestedThemeVariant="Light">
-  <Application.Styles>
-    <FluentTheme />
-    <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml" />
 
-    <Style Selector="Label.field">
-      <Setter Property="VerticalAlignment" Value="Center" />
-      <Setter Property="Margin" Value="0,0,12,0" />
-    </Style>
-    <Style Selector="TextBlock.hint">
-      <Setter Property="Foreground" Value="#6B7280" />
-      <Setter Property="VerticalAlignment" Value="Center" />
-      <Setter Property="FontSize" Value="12" />
-    </Style>
-    <Style Selector="TextBlock.error">
-      <Setter Property="Foreground" Value="#DC2626" />
-      <Setter Property="FontSize" Value="12" />
-    </Style>
-    <Style Selector="Border.card">
+  <!--
+    Grafica 2.0 (mockup in docs/gui-screenshot). Disegnati da zero qui: bottoni, schede, card, etichette colorate,
+    testi, intestazioni e celle delle tabelle (più Gauge e BarMeter in Views/Meters.cs).
+    Restano di Fluent, solo ricolorati: campi di testo, numeri, date, orari, menu a tendina, caselle di spunta,
+    righe e scorrimento del DataGrid (sono i controlli più complessi, usati anche dentro gli altri).
+    Carattere: 700 titolo di pagina e totale, 600 titoli delle card / etichette / bottoni / scheda attiva /
+    intestazioni delle tabelle, 400 tutto il resto.
+  -->
+
+  <Application.Resources>
+    <!-- Colori -->
+    <Color x:Key="PageColor">#F4F5F7</Color>
+    <SolidColorBrush x:Key="PageBrush" Color="#F4F5F7" />
+    <SolidColorBrush x:Key="CardBrush" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="LineBrush" Color="#E5E7EB" />
+    <SolidColorBrush x:Key="TextBrush" Color="#1F2937" />
+    <SolidColorBrush x:Key="MutedBrush" Color="#6B7280" />
+    <SolidColorBrush x:Key="FaintBrush" Color="#9CA3AF" />
+    <SolidColorBrush x:Key="AccentBrush" Color="#3B82F6" />
+    <SolidColorBrush x:Key="AccentHoverBrush" Color="#2563EB" />
+    <SolidColorBrush x:Key="GoodBrush" Color="#10B981" />
+    <SolidColorBrush x:Key="DangerBrush" Color="#DC2626" />
+    <SolidColorBrush x:Key="InputBrush" Color="#F3F4F6" />
+
+    <!-- Campi di Fluent ricolorati come nel mockup: grigi, bordo leggero, bianchi con bordo blu quando attivi. -->
+    <SolidColorBrush x:Key="TextControlBackground" Color="#F3F4F6" />
+    <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="#F3F4F6" />
+    <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="TextControlBorderBrush" Color="#E5E7EB" />
+    <SolidColorBrush x:Key="TextControlBorderBrushPointerOver" Color="#D1D5DB" />
+    <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="#3B82F6" />
+    <SolidColorBrush x:Key="TextControlForeground" Color="#1F2937" />
+    <SolidColorBrush x:Key="TextControlForegroundPointerOver" Color="#1F2937" />
+    <SolidColorBrush x:Key="TextControlForegroundFocused" Color="#1F2937" />
+    <SolidColorBrush x:Key="TextControlPlaceholderForeground" Color="#9CA3AF" />
+    <SolidColorBrush x:Key="TextControlPlaceholderForegroundPointerOver" Color="#9CA3AF" />
+    <SolidColorBrush x:Key="TextControlPlaceholderForegroundFocused" Color="#9CA3AF" />
+    <SolidColorBrush x:Key="ComboBoxBackground" Color="#F3F4F6" />
+    <SolidColorBrush x:Key="ComboBoxBackgroundPointerOver" Color="#F3F4F6" />
+    <SolidColorBrush x:Key="ComboBoxBorderBrush" Color="#E5E7EB" />
+    <SolidColorBrush x:Key="ComboBoxBorderBrushPointerOver" Color="#D1D5DB" />
+    <SolidColorBrush x:Key="CalendarDatePickerBackground" Color="#F3F4F6" />
+    <SolidColorBrush x:Key="CalendarDatePickerBackgroundPointerOver" Color="#F3F4F6" />
+    <SolidColorBrush x:Key="CalendarDatePickerBorderBrush" Color="#E5E7EB" />
+    <SolidColorBrush x:Key="CalendarDatePickerBorderBrushPointerOver" Color="#D1D5DB" />
+    <SolidColorBrush x:Key="TimePickerButtonBackground" Color="#F3F4F6" />
+    <SolidColorBrush x:Key="TimePickerButtonBorderBrush" Color="#E5E7EB" />
+
+    <!-- Bottone: disegnato da zero. Bianco con bordo; classi "accent" (blu pieno) e "danger" (testo rosso). -->
+    <ControlTheme x:Key="{x:Type Button}" TargetType="Button">
       <Setter Property="Background" Value="White" />
+      <Setter Property="Foreground" Value="#1F2937" />
       <Setter Property="BorderBrush" Value="#E5E7EB" />
       <Setter Property="BorderThickness" Value="1" />
       <Setter Property="CornerRadius" Value="8" />
-      <Setter Property="Padding" Value="16,12" />
-    </Style>
-    <Style Selector="TabItem">
-      <Setter Property="FontSize" Value="15" />
-      <Setter Property="MinHeight" Value="36" />
-    </Style>
-    <Style Selector="DataGridColumnHeader">
+      <Setter Property="Padding" Value="18,0" />
+      <Setter Property="MinHeight" Value="40" />
       <Setter Property="FontWeight" Value="SemiBold" />
-      <Setter Property="FontSize" Value="13" />
-    </Style>
-    <Style Selector="TextBlock.title">
+      <Setter Property="FontSize" Value="14" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border Name="PART_Border" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="{TemplateBinding CornerRadius}"
+                  Padding="{TemplateBinding Padding}">
+            <ContentPresenter Name="PART_ContentPresenter" Content="{TemplateBinding Content}"
+                              ContentTemplate="{TemplateBinding ContentTemplate}"
+                              Foreground="{TemplateBinding Foreground}"
+                              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+          </Border>
+        </ControlTemplate>
+      </Setter>
+      <Style Selector="^:pointerover /template/ Border#PART_Border">
+        <Setter Property="Background" Value="#F9FAFB" />
+        <Setter Property="BorderBrush" Value="#D1D5DB" />
+      </Style>
+      <Style Selector="^:pressed /template/ Border#PART_Border">
+        <Setter Property="Background" Value="#F3F4F6" />
+      </Style>
+      <Style Selector="^:disabled">
+        <Setter Property="Opacity" Value="0.45" />
+      </Style>
+      <Style Selector="^:focus-visible /template/ Border#PART_Border">
+        <Setter Property="BorderBrush" Value="#3B82F6" />
+      </Style>
+      <Style Selector="^.accent">
+        <Setter Property="Background" Value="#3B82F6" />
+        <Setter Property="Foreground" Value="White" />
+        <Setter Property="BorderBrush" Value="#3B82F6" />
+      </Style>
+      <Style Selector="^.accent:pointerover /template/ Border#PART_Border">
+        <Setter Property="Background" Value="#2563EB" />
+        <Setter Property="BorderBrush" Value="#2563EB" />
+      </Style>
+      <Style Selector="^.accent:pressed /template/ Border#PART_Border">
+        <Setter Property="Background" Value="#1D4ED8" />
+      </Style>
+      <Style Selector="^.danger">
+        <Setter Property="Foreground" Value="#DC2626" />
+      </Style>
+      <!-- Bottone piccolo quadrato (✕, frecce dei giorni). -->
+      <Style Selector="^.square">
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="Width" Value="40" />
+      </Style>
+      <!-- Selettore a due voci (Progetto / Issue): la voce attiva è blu chiaro. -->
+      <Style Selector="^.segment">
+        <Setter Property="MinHeight" Value="32" />
+        <Setter Property="Padding" Value="14,0" />
+        <Setter Property="FontWeight" Value="Normal" />
+        <Setter Property="Foreground" Value="#6B7280" />
+      </Style>
+      <Style Selector="^.segment.on">
+        <Setter Property="Background" Value="#EFF6FF" />
+        <Setter Property="BorderBrush" Value="#BFDBFE" />
+        <Setter Property="Foreground" Value="#1D4ED8" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+      </Style>
+    </ControlTheme>
+
+    <!-- Schede in alto: barra bianca, voce attiva in grassetto con la riga blu sotto. Disegnate da zero. -->
+    <ControlTheme x:Key="{x:Type TabControl}" TargetType="TabControl">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="ItemsPanel">
+        <ItemsPanelTemplate>
+          <StackPanel Orientation="Horizontal" Spacing="32" />
+        </ItemsPanelTemplate>
+      </Setter>
+      <Setter Property="Template">
+        <ControlTemplate>
+          <DockPanel Background="{TemplateBinding Background}">
+            <Border DockPanel.Dock="Top" Background="White" BorderBrush="#E5E7EB" BorderThickness="0,0,0,1" Padding="40,0">
+              <ItemsPresenter Name="PART_ItemsPresenter" ItemsPanel="{TemplateBinding ItemsPanel}" />
+            </Border>
+            <ContentPresenter Name="PART_SelectedContentHost" Content="{TemplateBinding SelectedContent}"
+                              ContentTemplate="{TemplateBinding SelectedContentTemplate}" />
+          </DockPanel>
+        </ControlTemplate>
+      </Setter>
+    </ControlTheme>
+
+    <ControlTheme x:Key="{x:Type TabItem}" TargetType="TabItem">
+      <Setter Property="Foreground" Value="#6B7280" />
       <Setter Property="FontSize" Value="15" />
-      <Setter Property="FontWeight" Value="SemiBold" />
-      <Setter Property="Margin" Value="0,0,0,10" />
+      <Setter Property="FontWeight" Value="Normal" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Panel Background="{TemplateBinding Background}">
+            <ContentPresenter Name="PART_ContentPresenter" Content="{TemplateBinding Header}"
+                              ContentTemplate="{TemplateBinding HeaderTemplate}"
+                              Foreground="{TemplateBinding Foreground}" Margin="0,17,0,17" />
+            <Border Name="Underline" Height="2" VerticalAlignment="Bottom" Background="#3B82F6" IsVisible="False" />
+          </Panel>
+        </ControlTemplate>
+      </Setter>
+      <Style Selector="^:pointerover">
+        <Setter Property="Foreground" Value="#1F2937" />
+      </Style>
+      <Style Selector="^:selected">
+        <Setter Property="Foreground" Value="#1F2937" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+      </Style>
+      <Style Selector="^:selected /template/ Border#Underline">
+        <Setter Property="IsVisible" Value="True" />
+      </Style>
+    </ControlTheme>
+  </Application.Resources>
+
+  <Application.Styles>
+    <FluentTheme>
+      <FluentTheme.Palettes>
+        <ColorPaletteResources x:Key="Light" Accent="#3B82F6" ErrorText="#DC2626" />
+      </FluentTheme.Palettes>
+    </FluentTheme>
+    <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml" />
+
+    <!-- Carattere e colore di base di tutte le finestre. -->
+    <Style Selector="Window">
+      <Setter Property="FontFamily" Value="fonts:Inter#Inter" />
+      <Setter Property="Foreground" Value="#1F2937" />
+      <Setter Property="FontSize" Value="14" />
+      <Setter Property="Background" Value="#F4F5F7" />
     </Style>
 
-    <!-- Tutte le tabelle: colonne ridimensionabili trascinando il bordo dell'intestazione. -->
+    <!-- Testi -->
+    <Style Selector="TextBlock.page-title">
+      <Setter Property="FontSize" Value="32" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="Foreground" Value="#1F2937" />
+    </Style>
+    <Style Selector="TextBlock.page-subtitle">
+      <Setter Property="FontSize" Value="15" />
+      <Setter Property="Foreground" Value="#6B7280" />
+      <Setter Property="Margin" Value="0,6,0,0" />
+    </Style>
+    <Style Selector="TextBlock.title">
+      <Setter Property="FontSize" Value="17" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="#1F2937" />
+    </Style>
+    <Style Selector="TextBlock.subtitle">
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="Foreground" Value="#6B7280" />
+      <Setter Property="Margin" Value="0,4,0,0" />
+    </Style>
+    <!-- Etichetta sopra un campo. -->
+    <Style Selector="TextBlock.label">
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="#4B5563" />
+      <Setter Property="Margin" Value="0,0,0,6" />
+    </Style>
+    <Style Selector="TextBlock.hint">
+      <Setter Property="Foreground" Value="#6B7280" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="TextBlock.error">
+      <Setter Property="Foreground" Value="#DC2626" />
+      <Setter Property="FontSize" Value="13" />
+    </Style>
+    <Style Selector="TextBlock.total">
+      <Setter Property="FontSize" Value="16" />
+      <Setter Property="FontWeight" Value="Bold" />
+    </Style>
+    <!-- Etichette a sinistra del campo (impostazioni e dialoghi). -->
+    <Style Selector="Label.field">
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="Margin" Value="0,0,16,0" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="Foreground" Value="#4B5563" />
+    </Style>
+
+    <!-- Card bianche con angoli arrotondati e un'ombra leggera. -->
+    <Style Selector="Border.card">
+      <Setter Property="Background" Value="White" />
+      <Setter Property="CornerRadius" Value="12" />
+      <Setter Property="Padding" Value="32,24" />
+      <Setter Property="BoxShadow" Value="0 1 3 0 #12000000, 0 1 2 0 #0A000000" />
+    </Style>
+    <Style Selector="Border.card.compact">
+      <Setter Property="Padding" Value="24,20" />
+    </Style>
+
+    <!-- Etichette colorate (Scaduto, Oggi, Inviato...). -->
+    <Style Selector="Border.badge">
+      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="Padding" Value="8,2" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Border.badge > TextBlock">
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+
+    <!-- Campi: forma del mockup (i colori arrivano dalle risorse qui sopra). -->
+    <Style Selector="TextBox">
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="MinHeight" Value="40" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="TextBox[AcceptsReturn=True]">
+      <Setter Property="VerticalContentAlignment" Value="Top" />
+      <Setter Property="Padding" Value="12,10" />
+    </Style>
+    <Style Selector="ComboBox, CalendarDatePicker, NumericUpDown, AutoCompleteBox">
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="MinHeight" Value="40" />
+    </Style>
+    <Style Selector="NumericUpDown">
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="TimePicker">
+      <Setter Property="CornerRadius" Value="8" />
+    </Style>
+
+    <!-- Tabelle -->
     <Style Selector="DataGrid">
       <Setter Property="CanUserResizeColumns" Value="True" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="RowBackground" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="GridLinesVisibility" Value="Horizontal" />
+      <Setter Property="HorizontalGridLinesBrush" Value="#EEF0F3" />
+      <Setter Property="HeadersVisibility" Value="Column" />
+    </Style>
+    <!-- Intestazione disegnata da zero: maiuscoletto grigio con la riga sotto (il bordo resta trascinabile). -->
+    <Style Selector="DataGridColumnHeader">
+      <Setter Property="Foreground" Value="#6B7280" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Padding" Value="12,0" />
+      <Setter Property="MinHeight" Value="40" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border Background="{TemplateBinding Background}" BorderBrush="#E5E7EB" BorderThickness="0,0,0,1"
+                  Padding="{TemplateBinding Padding}">
+            <ContentPresenter Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}"
+                              VerticalAlignment="Center" Foreground="{TemplateBinding Foreground}" />
+          </Border>
+        </ControlTemplate>
+      </Setter>
+    </Style>
+    <!-- Cella disegnata da zero: testo con margine, sfondo dalla riga (o dalla cella corrente nel report). -->
+    <Style Selector="DataGridCell">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Padding" Value="12,0" />
+      <Setter Property="FontSize" Value="14" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
+            <Grid ColumnDefinitions="*,Auto">
+              <ContentPresenter Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}"
+                                VerticalAlignment="Center" Foreground="{TemplateBinding Foreground}" />
+              <Rectangle Name="PART_RightGridLine" Grid.Column="1" Width="1" Fill="Transparent" />
+            </Grid>
+          </Border>
+        </ControlTemplate>
+      </Setter>
+    </Style>
+    <Style Selector="DataGridRow">
+      <Setter Property="MinHeight" Value="48" />
+    </Style>
+    <Style Selector="DataGridRow /template/ Rectangle#BackgroundRectangle">
+      <Setter Property="Fill" Value="#F3F4F6" />
+    </Style>
+    <!-- Righe su più righe di testo: un po' di respiro sopra e sotto. -->
+    <Style Selector="DataGridCell TextBlock.wrap">
+      <Setter Property="TextWrapping" Value="Wrap" />
+      <Setter Property="Margin" Value="0,12" />
     </Style>
 
     <!-- Tabelle "a celle": evidenzia la cella cliccata invece della riga intera (report da copiare in Jira). -->
@@ -50,7 +347,11 @@
       <Setter Property="Opacity" Value="0" />
     </Style>
     <Style Selector="DataGrid.cells DataGridCell:current">
-      <Setter Property="Background" Value="#BFDBFE" />
+      <Setter Property="Background" Value="#DBEAFE" />
+    </Style>
+
+    <Style Selector="ScrollViewer.page">
+      <Setter Property="HorizontalScrollBarVisibility" Value="Disabled" />
     </Style>
   </Application.Styles>
 </Application>

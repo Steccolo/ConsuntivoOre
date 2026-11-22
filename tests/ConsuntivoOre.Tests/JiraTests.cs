@@ -298,6 +298,93 @@ public sealed class JiraTests : IDisposable
         Assert.Contains("email e token API", ex.Message);
     }
 
+    // ------------------------------------------------------------ importazione da Tempo
+
+    private static string Worklogs(params string[] items) => """{"results":[""" + string.Join(",", items) + """],"metadata":{}}""";
+
+    private static string Worklog(long id, long issueId, string date, int seconds, string description, string start = "09:00:00") =>
+        $$"""{"tempoWorklogId":{{id}},"issue":{"id":{{issueId}}},"startDate":"{{date}}","startTime":"{{start}}","timeSpentSeconds":{{seconds}},"description":"{{description}}"}""";
+
+    [Fact]
+    public async Task Import_AddsMissingWorklogsAsSent()
+    {
+        var (store, jira, server) = Service();
+        server.Respond(HttpMethod.Get, "/4/worklogs/user/acc-1", HttpStatusCode.OK,
+            Worklogs(Worklog(900, 10001, "2026-11-02", 7200, "Riunione", "14:00:00")));
+
+        var result = await jira.ImportAsync(Day, Day);
+
+        Assert.Equal(1, result.Added);
+        var e = Assert.Single(store.EntriesBetween(Day, Day));
+        Assert.Equal(2, e.Hours);
+        Assert.Equal("Riunione", e.Note);
+        Assert.Equal("Acme", e.Client); // nome del progetto Jira
+        Assert.Equal("ABC-12", e.Jira!.Key);
+        Assert.Equal(900, e.Tempo!.WorklogId);
+        Assert.Equal(JiraStatus.Sent, e.JiraStatus);
+        Assert.Equal(new DateTime(2026, 11, 2, 14, 0, 0), e.CreatedAt);
+
+        // Una seconda importazione non duplica.
+        Assert.False((await jira.ImportAsync(Day, Day)).Changed);
+        Assert.Single(store.EntriesBetween(Day, Day));
+    }
+
+    [Fact]
+    public async Task Import_WebWinsOnSentEntries_ButNotOnLocalChanges()
+    {
+        var (store, jira, server) = Service();
+        var sent = Entry(jira: Issue);
+        var edited = Entry(jira: Issue);
+        var gone = Entry(jira: Issue);
+        foreach (var e in new[] { sent, edited, gone })
+        {
+            store.Add(e);
+            store.SetTempoSync(e.Id, TempoSync.Of(e, 0, DateTime.Now));
+        }
+        store.SetTempoSync(sent.Id, TempoSync.Of(sent, 1, DateTime.Now));
+        store.SetTempoSync(edited.Id, TempoSync.Of(edited, 2, DateTime.Now));
+        store.SetTempoSync(gone.Id, TempoSync.Of(gone, 3, DateTime.Now));
+        store.Update(edited.Id, 4, "Acme", "modifica locale non inviata", Issue);
+
+        // Sul web: la prima è passata a 3 h con un'altra nota, la seconda è cambiata, la terza è stata cancellata.
+        server.Respond(HttpMethod.Get, "/4/worklogs/user/acc-1", HttpStatusCode.OK, Worklogs(
+            Worklog(1, 10001, "2026-11-02", 10800, "Nota dal web"),
+            Worklog(2, 10001, "2026-11-02", 600, "altro")));
+
+        var result = await jira.ImportAsync(Day, Day);
+
+        Assert.Equal((0, 1, 1), (result.Added, result.Updated, result.Removed));
+        var s = store.Find(sent.Id)!;
+        Assert.Equal((3m, "Nota dal web", JiraStatus.Sent), (s.Hours, s.Note, s.JiraStatus));
+        var ed = store.Find(edited.Id)!;
+        Assert.Equal((4m, "modifica locale non inviata", JiraStatus.Changed), (ed.Hours, ed.Note, ed.JiraStatus));
+        Assert.Null(store.Find(gone.Id));
+    }
+
+    [Fact]
+    public async Task Import_KeepsLocalEmptyNote_WhenTempoHasTheIssueTitle()
+    {
+        var (store, jira, server) = Service();
+        var e = Entry(jira: Issue);
+        e.Note = "";
+        store.Add(e);
+        store.SetTempoSync(e.Id, TempoSync.Of(e, 7, DateTime.Now));
+        // All'invio la descrizione vuota era diventata il titolo della issue.
+        server.Respond(HttpMethod.Get, "/4/worklogs/user/acc-1", HttpStatusCode.OK,
+            Worklogs(Worklog(7, 10001, "2026-11-02", 5400, "Manutenzione")));
+
+        Assert.False((await jira.ImportAsync(Day, Day)).Changed);
+        Assert.Equal("", store.Find(e.Id)!.Note);
+    }
+
+    [Fact]
+    public void Worklogs_AreParsed_AndIncompleteOnesRejected()
+    {
+        var w = JiraClient.ParseWorklog(JsonNode.Parse(Worklog(5, 6, "2026-11-02", 900, "x")))!;
+        Assert.Equal((5L, 6L, Day, (TimeOnly?)new TimeOnly(9, 0), 900, "x"), (w.WorklogId, w.IssueId, w.Date, w.StartTime, w.Seconds, w.Description));
+        Assert.Null(JiraClient.ParseWorklog(JsonNode.Parse("""{"tempoWorklogId":5,"startDate":"2026-11-02","timeSpentSeconds":1}""")));
+    }
+
     /// <summary>Simula Jira e Tempo: risposte predefinite, sostituibili per singola chiamata.</summary>
     private sealed class FakeServer : HttpMessageHandler
     {
