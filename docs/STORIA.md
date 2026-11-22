@@ -249,6 +249,19 @@ https://github.com/Steccolo/ConsuntivoOre/releases/tag/v1.5.0 con `ConsuntivoOre
 gli ultimi ritocchi (riga Jira della scheda Consuntiva, nome del todo con l'etichetta accanto, altezza finestra);
 calendario e menu a tendina aperti (popup non catturati negli screenshot).
 
+Rilasciata come `v2.0.0` dopo la prova dell'utente ("sembra andare tutto"), con merge fast-forward su `main`.
+
+---
+
+## 2.0.1 — Nuova icona (22/11/2026)
+
+- Richiesta: cambiare l'icona. Fra sei proposte (semicerchio, orologio con spunta, foglio ore, clessidra, calendario,
+  monogramma) l'utente ha scelto **orologio bianco con spunta verde su quadrato arrotondato blu** (`#3B82F6`, come
+  l'accento dell'interfaccia).
+- Generata da `tools/MakeIcon.ps1` (System.Drawing, griglia 64×64, misure da 16 a 256). Fino a 24 px tratti più
+  spessi e spunta ridotta a un punto verde: a quella misura il segno di spunta non si leggeva.
+- Idea non realizzata: icona nell'area di notifica che si "riempie" con le ore della giornata.
+
 ---
 
 ## Da verificare / idee aperte
