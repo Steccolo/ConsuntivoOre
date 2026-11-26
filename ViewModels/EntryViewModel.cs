@@ -140,10 +140,17 @@ public sealed partial class EntryViewModel : ObservableObject
     [ObservableProperty] public partial bool JiraEnabled { get; set; }
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IssueText), nameof(HasIssue), nameof(IssueWeight))]
+    [NotifyPropertyChangedFor(nameof(IssueText), nameof(HasIssue), nameof(IssueWeight), nameof(ClientEditable))]
     public partial JiraIssueRef? Issue { get; set; }
 
+    // Con una issue il cliente è il suo titolo (come su Tempo) e non si scrive a mano.
+    partial void OnIssueChanged(JiraIssueRef? value)
+    {
+        if (value is not null) Client = value.ClientName;
+    }
+
     public bool HasIssue => Issue is not null;
+    public bool ClientEditable => Issue is null;
     public FontWeight IssueWeight => HasIssue ? FontWeight.SemiBold : FontWeight.Normal;
     public string IssueText => Issue?.Display ?? "nessuna (solo in locale)";
 
@@ -179,11 +186,15 @@ public sealed partial class EntryViewModel : ObservableObject
     {
         if (AskIssue is null || await AskIssue() is not { } issue) return;
         Issue = issue;
-        // Il cliente è obbligatorio: se manca si propone il progetto Jira.
-        if (string.IsNullOrWhiteSpace(Client) && issue.ProjectName.Length > 0) Client = issue.ProjectName;
     }
 
-    [RelayCommand] private void ClearIssue() => Issue = null;
+    // Senza issue il cliente torna libero (si svuota: quello della issue non avrebbe più senso).
+    [RelayCommand]
+    private void ClearIssue()
+    {
+        if (Issue is not null) Client = "";
+        Issue = null;
+    }
 
     private bool CanSendSelected => JiraEnabled && Selected?.Entry.NeedsTempoSync == true;
 
@@ -312,11 +323,11 @@ public sealed partial class EntryViewModel : ObservableObject
     {
         decimal hours = Hours ?? 0;
         if (hours <= 0) { ShowError("Indica quante ore hai lavorato."); return; }
-        string client = (Client ?? "").Trim();
-        if (client.Length == 0) { ShowError("Indica il cliente."); return; }
         string note = Note.Trim();
         // A Jira disattivato il collegamento già presente sulla voce non si tocca.
         var issue = JiraEnabled ? Issue : EditingId is { } e ? _store.Find(e)?.Jira : null;
+        string client = DataStore.ClientFor((Client ?? "").Trim(), issue);
+        if (client.Length == 0) { ShowError(JiraEnabled ? "Scegli la issue di Jira o indica il cliente." : "Indica il cliente."); return; }
 
         Guid savedId;
         try
@@ -365,9 +376,9 @@ public sealed partial class EntryViewModel : ObservableObject
         if (Selected?.Entry is not { } entry) return;
         EditingId = entry.Id;
         Hours = entry.Hours;
+        Issue = entry.Jira;
         Client = entry.Client;
         Note = entry.Note;
-        Issue = entry.Jira;
         Message = null;
     }
 

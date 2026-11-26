@@ -318,7 +318,7 @@ public sealed class JiraTests : IDisposable
         var e = Assert.Single(store.EntriesBetween(Day, Day));
         Assert.Equal(2, e.Hours);
         Assert.Equal("Riunione", e.Note);
-        Assert.Equal("Acme", e.Client); // nome del progetto Jira
+        Assert.Equal(e.Jira!.Summary, e.Client); // titolo della issue, come su Tempo
         Assert.Equal("ABC-12", e.Jira!.Key);
         Assert.Equal(900, e.Tempo!.WorklogId);
         Assert.Equal(JiraStatus.Sent, e.JiraStatus);

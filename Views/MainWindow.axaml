@@ -243,7 +243,11 @@
                 <TextBlock Classes="label" Text="Cliente" />
                 <AutoCompleteBox Text="{Binding Client}" ItemsSource="{Binding Clients}"
                                  FilterMode="StartsWithCaseSensitive" MinimumPrefixLength="0"
-                                 PlaceholderText="Scegli o scrivi un cliente" />
+                                 PlaceholderText="Scegli o scrivi un cliente" IsVisible="{Binding ClientEditable}" />
+                <!-- Con una issue Jira il cliente è il suo titolo, come su Tempo: non si modifica. -->
+                <TextBox Text="{Binding Client, Mode=OneWay}" IsReadOnly="True" Focusable="False"
+                         IsVisible="{Binding HasIssue}" Background="#F3F4F6"
+                         ToolTip.Tip="Preso dalla issue di Jira (come su Tempo). Togli la issue per scriverlo a mano." />
               </StackPanel>
             </Grid>
             <StackPanel>

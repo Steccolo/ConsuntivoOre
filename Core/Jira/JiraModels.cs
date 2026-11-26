@@ -14,6 +14,10 @@ public sealed class JiraIssueRef
     [JsonIgnore]
     public string Display => Summary.Length > 0 ? $"{Key} — {Summary}" : Key;
 
+    /// <summary>Cliente delle voci collegate a questa issue: il titolo come appare su Tempo (o la chiave).</summary>
+    [JsonIgnore]
+    public string ClientName => Summary.Trim().Length > 0 ? Summary.Trim() : Key;
+
     /// <summary>Chiave del progetto ricavata da quella della issue: "ABC-12" → "ABC".</summary>
     [JsonIgnore]
     public string ProjectKey => Key.LastIndexOf('-') is > 0 and var i ? Key[..i] : Key;

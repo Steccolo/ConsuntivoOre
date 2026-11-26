@@ -90,10 +90,15 @@ public sealed class DataStore
                 .Select(g => g.MaxBy(e => e.CreatedAt)!.Client)
                 .ToList();
 
+    /// <summary>Con una issue Jira il cliente non è libero: è il titolo della issue (come su Tempo).</summary>
+    public static string ClientFor(string client, JiraIssueRef? jira) => jira?.ClientName ?? client;
+
     public void Add(TimeEntry entry)
     {
+        var oldClient = entry.Client;
+        entry.Client = ClientFor(entry.Client, entry.Jira);
         _entries.Add(entry);
-        CommitEntries(undo: () => _entries.Remove(entry));
+        CommitEntries(undo: () => { _entries.Remove(entry); entry.Client = oldClient; });
     }
 
     public void Update(Guid id, decimal hours, string client, string note) =>
@@ -104,7 +109,7 @@ public sealed class DataStore
     {
         var entry = Find(id) ?? throw new InvalidOperationException("Voce non trovata.");
         var old = (entry.Hours, entry.Client, entry.Note, entry.Jira);
-        (entry.Hours, entry.Client, entry.Note, entry.Jira) = (hours, client, note, jira);
+        (entry.Hours, entry.Client, entry.Note, entry.Jira) = (hours, ClientFor(client, jira), note, jira);
         CommitEntries(undo: () => (entry.Hours, entry.Client, entry.Note, entry.Jira) = old);
     }
 
@@ -112,9 +117,10 @@ public sealed class DataStore
     public void ApplyRemote(Guid id, DateOnly date, decimal hours, string note, JiraIssueRef jira, TempoSync sync)
     {
         var entry = Find(id) ?? throw new InvalidOperationException("Voce non trovata.");
-        var old = (entry.Date, entry.Hours, entry.Note, entry.Jira, entry.Tempo);
-        (entry.Date, entry.Hours, entry.Note, entry.Jira, entry.Tempo) = (date, hours, note, jira, sync);
-        CommitEntries(undo: () => (entry.Date, entry.Hours, entry.Note, entry.Jira, entry.Tempo) = old);
+        var old = (entry.Date, entry.Hours, entry.Client, entry.Note, entry.Jira, entry.Tempo);
+        (entry.Date, entry.Hours, entry.Client, entry.Note, entry.Jira, entry.Tempo) =
+            (date, hours, ClientFor(entry.Client, jira), note, jira, sync);
+        CommitEntries(undo: () => (entry.Date, entry.Hours, entry.Client, entry.Note, entry.Jira, entry.Tempo) = old);
     }
 
     /// <summary>Registra l'esito di un invio a Tempo (null = la voce non c'è più su Tempo).</summary>
@@ -315,6 +321,8 @@ public sealed class DataStore
             e.Client ??= "";
             e.Note ??= "";
             e.Jira = ValidIssue(e.Jira);
+            // Fino alla 2.0.1 il cliente era libero anche sulle voci Jira: si allinea al titolo della issue.
+            e.Client = ClientFor(e.Client, e.Jira);
             if (e.Tempo is { } t) t.Note ??= "";
         }
         return entries;

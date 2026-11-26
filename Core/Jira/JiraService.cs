@@ -174,7 +174,7 @@ public sealed class JiraService(DataStore store, CredentialStore credentials, Ht
                     {
                         Date = w.Date,
                         Hours = HoursOf(w.Seconds),
-                        Client = jira.ProjectName.Length > 0 ? jira.ProjectName : jira.ProjectKey,
+                        Client = jira.ClientName,
                         Note = w.Description,
                         Jira = jira,
                         // Nell'elenco del giorno compare nell'ordine in cui è su Tempo.

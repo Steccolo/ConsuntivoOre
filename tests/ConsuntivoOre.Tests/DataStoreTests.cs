@@ -34,6 +34,43 @@ public sealed class DataStoreTests : IDisposable
         Assert.Empty(store.LoadProblems);
     }
 
+    private static readonly JiraIssueRef Rd = new() { Id = 10052, Key = "FRO092-5", Summary = "Ricerca e sviluppo interna", ProjectName = "Attività Interne" };
+
+    [Fact]
+    public void ClientOfJiraEntries_IsTheIssueSummary()
+    {
+        var store = new DataStore(_dir);
+        var linked = new TimeEntry { Date = Day, Hours = 2, Client = "scritto a mano", Jira = Rd };
+        store.Add(linked);
+        Assert.Equal("Ricerca e sviluppo interna", linked.Client);
+
+        store.Update(linked.Id, 3, "altro", "n", Rd);
+        Assert.Equal("Ricerca e sviluppo interna", linked.Client);
+
+        // Senza issue il cliente resta libero.
+        store.Update(linked.Id, 3, "Acme", "n", null);
+        Assert.Equal("Acme", linked.Client);
+
+        // Issue senza titolo: si usa la chiave.
+        store.Update(linked.Id, 3, "Acme", "n", new JiraIssueRef { Id = 1, Key = "ABC-1" });
+        Assert.Equal("ABC-1", linked.Client);
+    }
+
+    [Fact]
+    public void OldJiraEntries_GetTheIssueSummaryAsClient()
+    {
+        File.WriteAllText(PathOf("entries.json"),
+            """
+            {"SchemaVersion":1,"Entries":[
+              {"Id":"8f3c2b1a-5d4e-4a7b-9c61-2e0f3d9a7b15","Date":"2026-11-02","Hours":3,"Client":"Upgrade Moodle","Note":"",
+               "Jira":{"Id":10052,"Key":"FRO092-5","Summary":"Ricerca e sviluppo interna","ProjectName":"Attività Interne"}},
+              {"Id":"9f3c2b1a-5d4e-4a7b-9c61-2e0f3d9a7b15","Date":"2026-11-02","Hours":1,"Client":"Acme","Note":""}]}
+            """);
+        var entries = new DataStore(_dir).EntriesBetween(Day, Day);
+        Assert.Equal(["Ricerca e sviluppo interna", "Acme"], entries.Select(e => e.Client));
+        Assert.All(entries, e => Assert.NotEqual(JiraStatus.Changed, e.JiraStatus));
+    }
+
     [Theory]
     [InlineData("{ non è json")]
     [InlineData("null")]
